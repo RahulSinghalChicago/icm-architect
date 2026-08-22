@@ -59,6 +59,60 @@ One job: write the script from the research output.
 Read the draft aloud — the argument order should survive from research. Edit in place; the next stage reads whatever is here.
 ```
 
+### Writing the Human check
+
+Three things, in this order, and nothing else:
+
+1. **The act** — what the person does with their own eyes or hands. A verb they perform, not a state they confirm.
+2. **What they look at** — the artifact, named.
+3. **What makes it fail** — the condition that stops the stage.
+
+Everything else belongs somewhere other than this section:
+
+| Do not write | Where it goes |
+|---|---|
+| A preamble framing the check ("the one judgement no machine can make…") | nowhere. The section is the Human check; saying so is a wasted line. |
+| *Why* the act matters — the incident, the cost, the measurement | the shelf, or the gate/sign-off record that the check feeds |
+| What other folders do with the result, or which of them read it next | nowhere. A contract describes its own folder. |
+| A restatement of what the sign-off record already demands | that record. Cite it; do not paraphrase it. |
+| "Everything else here is checked by X" | nowhere. Absence needs no announcement. |
+
+The test: a person who has never read this workspace should be able to perform the act from these words alone, and know what would make them refuse to sign. If a sentence does not move them toward doing or refusing, it is not a Human check sentence.
+
+Before — 139 tokens, and only the middle third is the check:
+
+```markdown
+One judgement, and it is the only one here no machine can make: **are these four export
+counts plausible for THIS cycle?** A complete export of the wrong period passes every
+automated check there is, and a stale or truncated download is invisible downstream and
+cannot be re-created later.
+
+Read the fetcher's summary rather than re-counting, do the check yourself for anything
+you pulled by hand, then compare all four against the previous cycle's ledger. Sign G01.
+
+Everything else this stage checks is a value, not a judgement, and is stopped at step 4.
+```
+
+After — 52 tokens, all three parts, nothing else:
+
+```markdown
+Compare the four export counts against the previous cycle's `gate-ledger.csv`, `G01`
+row, `metrics` cell. Read the fetcher's summary rather than re-counting; count by hand
+only what you pulled by hand. **A count that is complete but implausible for this cycle
+stops the stage.** Sign `G01`.
+```
+
+### Where commands live
+
+A shell invocation is not prose and does not count against you as reasoning — it is the thing you run. But a Process step carrying several commands, their flags, and the defaults of those flags has stopped being a contract and become a runbook.
+
+The split: **the contract names the step and the file it runs; the shelf carries the invocation.** A step reads "Derive the lists. Leave `--min-sellable-online` at the constants value." and the shelf holds the command line, every switch, and what each one does. Two tests for whether a command has outgrown the contract — either one is enough:
+
+- The step needs more than one command line, or one line plus an explanation of its flags.
+- The command's *arguments* are what change between runs, not just its inputs.
+
+A runbook shelf is one file per stage, not one per command: an operator mid-run wants one page open, not seven. Commands that several folders share move to the shared layer like any other fact with more than one reader.
+
 Rules: inputs are exact paths in backticks, scoped **working (this run)**, **reference (every run)** or **reference (only if disputed)** — the last is named but not loaded on a normal run, and demoting an input to it is the single biggest lever on a step's load. The process is numbered and short — constraints live in L3 files, not restated here. Exactly one human check, stated as something a person does, not a vague "review."
 
 ## Naming conventions

@@ -21,8 +21,17 @@ Do NOT load: {anything an eager agent would wrongly pull in — other stages' re
 2. {Transform, following the reference constraints.}
 3. {Hard limits worth restating: length, count, format.}
 
+{A step names what to run and the one rule that governs it. If a step needs several
+commands, or a command plus an explanation of its flags, the invocation belongs on this
+stage's references/ shelf and the step points at it.}
+
 ## Outputs
 - `{artifact}.md` → `output/`
 
 ## Human check
-{One concrete act: read it aloud / verify the numbers against X / confirm the order survived. Edit the output in place — the next stage reads whatever is here.}
+{Three things and nothing else: the ACT the person performs, the ARTIFACT they look at,
+and WHAT MAKES IT FAIL. No preamble framing the check, no why-it-matters, no mention of
+what other folders do with the result. Example:}
+
+{Read `output/{artifact}.md` aloud. **{The condition that stops the stage}** stops it.
+Edit in place — the next stage reads whatever is here.}
