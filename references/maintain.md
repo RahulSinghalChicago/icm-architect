@@ -27,7 +27,7 @@ The table below names pipeline objects because that is the form it was written f
 
 ## Holding the budget
 
-Budgets and the three ways to get back under them are in [core.md](core.md), Token discipline. Two things belong here instead, because they are about the loop rather than the number.
+Budgets and the remedies when a layer is over are in [budgets.md](budgets.md). Two things belong here instead, because they are about the loop rather than the number.
 
 **Additions compound and nobody notices.** Adding text is how a review finding gets answered — every round, by default. In the record above, the contracts grew monotonically across thirteen commits while genuinely becoming more correct, and the first reduction came at commit fourteen, only because someone measured. Correctness and size move independently. Track size explicitly or it only goes one way.
 
@@ -59,7 +59,7 @@ A review that only asks whether the documents agree with each other will keep fi
 
 - **Use a different reviewer from the one that made the change** — a different model where you have one, otherwise a different person. In the record above the round that found a different *class* of defect differed from the four before it in three ways at once: different model, no briefing on what earlier rounds had hunted, and a wider scope. The counts (9 across the first two rounds, then 13, then 15, then 23) cannot separate those causes, and the next bullet is probably doing most of the work. Change the reviewer if you can; change the briefing and the seat regardless, since those cost nothing.
 - **Do not brief the reviewer on what earlier rounds hunted.** It feels efficient and it hands over your blind spots. The un-briefed round is the one that wandered into a stage nobody had scoped and found a sign-off attesting to a machine check the code had never performed.
-- **Seat the reviewer in a role, not at a proofreading desk.** "Read this contract and find problems" returns wording. "You are about to run this stage against the live system" and "you are the person signing this gate, and your signature authorises the next step" return defects. The role supplies the question; you do not have to.
+- **Seat the reviewer in the role that bears the consequence, not at a proofreading desk.** "Read this contract and find problems" returns wording. A role returns defects, because the role supplies the question and you do not have to. In a pipeline: "you are about to run this stage against the live system", and "you are the person signing this gate — your signature authorises the next step". In a record library: "you are admitting this record, and everything downstream will treat it as true". In a knowledge bundle: "you are about to answer a stranger using only what is written here". In a system map: "you are about to change this object, and the map is your only warning about what else moves".
 - **Verify findings adversarially before applying any of them.** Default to refuted. A wrong finding that survives review costs more than a real one that is missed, because it gets written into the files as a fix.
 - **Count what a round produced and what it cost.** Defects found per round, and defects introduced per fix round, are the only signal you have about whether the workspace is converging. If neither number is falling, more rounds of the same kind will not help — change the seat, the model, or the scope.
 

@@ -33,7 +33,8 @@ Every result is validated with the **walk test**: an agent with no memory must o
 icm-architect/
 ├─ SKILL.md              the method: invariants, the three modes, walk test
 ├─ references/
-│  ├─ core.md            five principles, five-layer hierarchy, naming, token budgets
+│  ├─ core.md            five principles, the layer hierarchy, contract format, naming
+│  ├─ budgets.md         every token figure, the per-section budgets, and the remedies
 │  ├─ forms.md           the six forms in depth: skeletons, moves, failure modes
 │  ├─ system-map.md      audit pipeline for the System map form
 │  └─ maintain.md        changing a built workspace: where a fix lands, claim

@@ -4,7 +4,7 @@
 The walk test in SKILL.md is a set of questions a person asks. Most of them have a
 checkable form, and the ones that do belong in a script — a criterion nobody measures
 is a criterion nobody meets. This measures those and names the remedy for each miss,
-in the order core.md says to try them.
+in the order budgets.md says to try them.
 
     python3 evaluate-stage.py stages/01_export-evidence          # one stage
     python3 evaluate-stage.py stages/*/                          # the whole pipeline
@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-# core.md, "Budget the sections". A single whole-file number cannot say where to cut,
+# budgets.md, "Budget the sections". A single whole-file number cannot say where to cut,
 # and a criterion that fails every folder gets ignored -- so each section is budgeted
 # for what it structurally is.
 SECTION_BUDGET = {
@@ -41,7 +41,7 @@ TOLERANCE = 1.20
 # Rough estimator: whitespace-words x this. Calibrated against one English
 # prose-and-paths markdown workspace, so re-derive it for yours -- code blocks, JSON,
 # long identifiers and non-Latin scripts all tokenize far denser than this assumes.
-# The whole-step budget (core.md, hierarchy table) is deliberately NOT checked here:
+# The whole-step budget (budgets.md, hierarchy table) is deliberately NOT checked here:
 # it depends on what a contract's Inputs resolve to, which needs the workspace, not
 # the contract.
 TOKENS_PER_WORD = 1.359
@@ -68,7 +68,7 @@ def sections(text: str) -> dict[str, str]:
 def human_acts(body: str) -> int:
     """How many distinct acts the Human check appears to contain.
 
-    The seam of a stage is its human gate (core.md, remedy 3). Counting is a proxy and
+    The seam of a stage is its human gate (budgets.md, remedy 3). Counting is a proxy and
     it is reported as a WARN, never a verdict: no script can tell an ATTESTATION (a
     judgement no machine can make) from a TRANSCRIPTION (a value copied out of a file).
     That classification is the actual test, and it is yours.
@@ -118,7 +118,7 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
             f"the Human check appears to contain {acts} acts. Classify each before doing "
             "anything: an ATTESTATION is a judgement no machine can make and is what makes a "
             "stage; a TRANSCRIPTION is a value copied out of a file and belongs in the Process "
-            "as a stop condition. Two attestations is a split (core.md, remedy 3). An "
+            "as a stop condition. Two attestations is a split (budgets.md, remedy 3). An "
             "attestation plus a transcription is one stage. No script can tell them apart.")))
 
     for name, got, budget, sev in over:
@@ -155,8 +155,12 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
     if re.search(r"`[\w./-]+\.(md|py|csv)`\s*[,;]?\s*(?:lines?\s*)?:\d", text) or \
        re.search(r"`[\w./-]+\.(md|py|csv):\d", text):
         out.append(("WARN", "no line citations", (
-            "cites a file by line number; those drift the next time it is edited. "
-            "Cite a section name or a code symbol.")))
+            "cites a file by line number; those drift the next time it is edited. Cite a "
+            "section name or a code symbol. A CONTRACT is held to a stricter standard than the "
+            "rest of the workspace here — check-references.py reports line citations only as an "
+            "advisory, because narrowing a large file by range is a real technique. A contract is "
+            "the control surface and is re-read every run, so a drifted range in one misdirects "
+            "every run until someone notices.")))
     return out
 
 
@@ -173,7 +177,7 @@ def main() -> int:
             else:
                 bad.append(a)                     # never drop an argument silently
         for a in bad:
-            print(f"FAIL  {a:<24}not a stage directory or CONTEXT.md")
+            print(f"FAIL  {a:<24}  not a stage directory or CONTEXT.md")
             worst = 1
     else:
         default = Path("stages")
@@ -190,7 +194,7 @@ def main() -> int:
         try:
             findings = evaluate(stage)
         except Exception as exc:   # one bad folder must not void the rest of the run
-            print(f"FAIL  {stage.name:<24}evaluation crashed: {exc!r}")
+            print(f"FAIL  {stage.name:<24}  evaluation crashed: {exc!r}")
             worst = 1
             continue
         try:

@@ -21,7 +21,7 @@ Every ICM, whatever its form, obeys these. When building or restructuring, enfor
 4. **Every folder-level contract is explicit.** A `CONTEXT.md` per working folder: what it reads (inputs), what it does (process), what it writes (outputs), what a human checks. See [assets/templates/stage-CONTEXT.md](assets/templates/stage-CONTEXT.md).
 5. **Factory vs. product.** Reference material (rules, voice, schemas, templates — stable across runs) lives structurally apart from working artifacts (outputs, drafts — new every run). Configure the factory once; the product is what each run emits.
 6. **Every output is an edit surface.** Intermediate outputs are plain files a human can open, edit, and save before the next step reads them. Nothing moves forward until a person has read the last output.
-7. **Load only what the step needs.** An agent executing a step reads its contract, its references, and its inputs — not the whole workspace. The per-layer and per-step token budgets in [references/core.md](references/core.md) are limits, not observations: a file over its budget is a defect with a due date.
+7. **Load only what the step needs.** An agent executing a step reads its contract, its references, and its inputs — not the whole workspace. The token budgets in [references/budgets.md](references/budgets.md) are limits, not observations: a file over its budget is a defect with a due date.
 8. **Plain text, linkable, queryable.** Markdown + YAML frontmatter. Links (`[[wikilinks]]` or relative paths) make it a graph; frontmatter labels make it queryable. One home per fact — a link beats a copy.
 9. **The filesystem is the state machine.** "Status" is derivable by scanning what exists in output folders. Generated indexes (file maps, logs) are rebuilt by script, never hand-edited.
 10. **Instantiate by copying.** New unit of work = copy a template folder, not a blank page. Keep templates in a `_templates/` or `_system/` folder.
@@ -91,7 +91,7 @@ The workspace already exists and is in use; something is being fixed, added, or 
 
 **1. A fix lands in the layer that owns the failing content.** Wrong rule → the shelf that owns the rule. Wrong value → the one file that owns values. Wrong ordering → the folder numbers. **A contract changes only when the contract's own words are wrong.** Adding a clause to the nearest `CONTEXT.md` is the default move and the wrong one; it is how contracts absorb payload and how a fact gets a second home.
 
-**2. The budget binds, and it binds per section.** A single whole-file number cannot tell you where to cut — budget Inputs, Process (per step), Outputs and the Human check separately, and work the remedies in the order [references/core.md](references/core.md) gives them. [assets/evaluate-stage.py](assets/evaluate-stage.py) measures all of it and names the remedy for each miss, so the loop is: measure, apply the remedy it names, measure again. Before adding a sentence, name the sentence that leaves.
+**2. The budget binds, and it binds per section.** A single whole-file number cannot tell you where to cut — budget Inputs, Process (per step), Outputs and the Human check separately, and work the remedies in the order [references/budgets.md](references/budgets.md) gives them. [assets/evaluate-stage.py](assets/evaluate-stage.py) measures all of it and names the remedy for each miss, so the loop is: measure, apply the remedy it names, measure again. Before adding a sentence, name the sentence that leaves.
 
 **3. Re-walk what you changed.** The walk test gates every change, scoped to the folders the change touched. Read every file you edited *after* you edited it — the file, not the diff. A findings list is a set of claims about the files, never a patch to apply.
 
@@ -108,7 +108,7 @@ Validate any ICM — new, restructured, or changed — by walking it cold, as an
 - Can you state pipeline status purely by scanning what exists in `output/` folders (or node frontmatter)?
 - Is any routing file carrying content payload? Move the payload to a shelf; leave a pointer.
 - Is any fact stored in two places? Pick one home; link from the other.
-- Token check: entry file + one contract + its inputs should land in roughly 2k–8k tokens.
+- Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md). That file is the one home for every token figure.
 - System map only: can a cold agent answer *what is X* and *what else moves if I change X* from `map/CLAUDE.md` plus one card? Extra checks are in [references/system-map.md](references/system-map.md).
 
 If a step fails, fix the structure — not by explaining more, but by moving or splitting files until the walk works.
@@ -121,7 +121,8 @@ If a step fails, fix the structure — not by explaining more, but by moving or 
 
 ## References
 
-- [references/core.md](references/core.md) — the five design principles, the five-layer context hierarchy, naming conventions, token discipline. Read when writing contracts or when a structural call is contested.
+- [references/core.md](references/core.md) — the five design principles, the five-layer context hierarchy, the contract format, naming conventions, library rules. Read when writing contracts or when a structural call is contested.
+- [references/budgets.md](references/budgets.md) — every token figure, the per-section contract budgets, how to count a step's whole load, and the remedies when a layer is over. The one home for sizes.
 - [references/forms.md](references/forms.md) — the six forms in depth: skeletons, moves, failure modes. Read at step 2 of Build mode or step 2 of Restructure mode.
 - [references/system-map.md](references/system-map.md) — audit pipeline for the System map form. Read when that form is chosen.
 - [references/maintain.md](references/maintain.md) — where a fix lands, holding the budget, sourcing claims, and how to review a change so the review finds real defects. Read at the start of Maintain mode.

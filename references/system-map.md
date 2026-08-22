@@ -108,7 +108,7 @@ A cold agent, no memory of the subject:
 3. Open one object card. Does it cite source, state the why, and give a first-order waterfall?
 4. From `effects/CONTEXT.md`, can it name what a stated change hits and what it does not?
 5. Follow one `See` link. Does it land on source, not another essay?
-6. Token check: entry + hub + one card stays in the 2k–8k band.
+6. Token check: entry + hub + one card stays inside the whole-step band in [budgets.md](budgets.md). That composition is this form's variation on it — a card stands in for a contract and its inputs.
 
 If a step fails, split or move files. Do not add a “how to read this map” novel.
 
