@@ -11,14 +11,15 @@ The workspace is a library. The routing files are the catalog: small, stable, th
 
 ## What it does
 
-Two modes:
+Three modes:
 
 - **Build** — extracts the structure already present in how you describe your work (the stages, the human gates, what's stable vs. per-run), picks one of six proven forms, and scaffolds the smallest workspace that carries it.
 - **Restructure** — audits an existing folder, classifies every file (catalog / contract / factory / product / dead), proposes a migration map for approval, then migrates and validates.
+- **Maintain** — changes a workspace that already exists without decaying it: where a fix lands, holding the context budget, sourcing every claim, and reviewing a change so the review finds real defects instead of wording.
 
 Six forms, one skeleton: **Pipeline** (production line), **Umbrella** (portfolio of pipelines), **Record library** (people/clients/sessions), **Knowledge bundle** (a navigable brain), **Context map** (an organization as a graph), **System map** (a folder later agents will edit — nouns, movements, change-impact). They compose and recurse.
 
-Every result is validated with the **walk test**: an agent with no memory must orient, act, and report status from the files alone.
+Every result is validated with the **walk test**: an agent with no memory must orient, act, and report status from the files alone. `assets/evaluate-stage.py` measures the checkable half of it, so the loop is mechanical: measure, apply the remedy it names, measure again.
 
 ## Install
 
@@ -30,13 +31,20 @@ Every result is validated with the **walk test**: an agent with no memory must o
 
 ```
 icm-architect/
-├─ SKILL.md              the method: invariants, build mode, restructure mode, walk test
+├─ SKILL.md              the method: invariants, the three modes, walk test
 ├─ references/
-│  ├─ core.md            five principles, five-layer hierarchy, naming, token discipline
+│  ├─ core.md            five principles, five-layer hierarchy, naming, token budgets
 │  ├─ forms.md           the six forms in depth: skeletons, moves, failure modes
-│  └─ system-map.md      audit pipeline for the System map form
-└─ assets/templates/     copyable starters: CLAUDE.md, CONTEXT.md, stage contract,
-                         node card, object/process cards, schema, questionnaire
+│  ├─ system-map.md      audit pipeline for the System map form
+│  └─ maintain.md        changing a built workspace: where a fix lands, claim
+│                        sourcing, re-walking, how to review a change
+└─ assets/
+   ├─ templates/         copyable starters: CLAUDE.md, CONTEXT.md, stage contract,
+   │                     node card, object/process cards, schema, questionnaire
+   ├─ check-references.py  the mechanical cross-reference pass, with its ceiling
+   │                     documented and a --self-test that proves each check can fail
+   └─ evaluate-stage.py  scores a stage contract section by section against the
+                         budgets and names the remedy for each miss
 ```
 
 MIT licensed, like the protocol it serves.

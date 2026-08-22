@@ -1,11 +1,18 @@
+<!-- A retired stage keeps its folder as a signpost so old references still land
+     somewhere. Mark it with a line reading `RETIRED <date> — see <where it went>` and
+     delete the rest; tooling skips a folder carrying that marker and evaluates every
+     folder that does not. -->
+
 # {NN}_{stage-name} — {the job in five words}
 
 One job: {the single thing this stage does}.
 
 ## Inputs
-- Working (this run): ../{NN-1}_{prev-stage}/output/{file}
-- Reference (every run): ../../_shared/{rules-file}.md
-- Reference (every run): references/{stage-specific-guide}.md
+- Working (this run): `../{NN-1}_{prev-stage}/output/{file}`
+- Reference (every run): `../../_shared/{rules-file}.md`
+- Reference (every run): `references/{stage-specific-guide}.md`
+- Reference (only if disputed): `../../_shared/{background}.md` — not loaded on a
+  normal run; named here so a person can reach it when a decision is contested
 
 Do NOT load: {anything an eager agent would wrongly pull in — other stages' references, prior runs, the whole _shared folder}.
 
@@ -15,7 +22,7 @@ Do NOT load: {anything an eager agent would wrongly pull in — other stages' re
 3. {Hard limits worth restating: length, count, format.}
 
 ## Outputs
-- {artifact}.md → output/
+- `{artifact}.md` → `output/`
 
 ## Human check
 {One concrete act: read it aloud / verify the numbers against X / confirm the order survived. Edit the output in place — the next stage reads whatever is here.}

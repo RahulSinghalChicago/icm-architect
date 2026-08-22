@@ -1,6 +1,6 @@
 ---
 name: icm-architect
-description: Design any process, idea, problem, or body of knowledge into an ICM (Interpretable Context Methodology) workspace — folder structure as agent architecture — or restructure an existing folder, repo, or vault into one. Use when the user wants to (1) turn a recurring workflow into an agent-runnable folder pipeline, (2) organize scattered notes, files, or knowledge into a library one AI agent can walk, (3) map a team or company as connected context ("context map", "second brain", "team brain", "knowledge base for AI"), (4) audit a codebase or mixed folder into a walkable edit map (objects, processes, change-impact) so later agents can change it without slurping the tree, (5) audit or restructure an existing workspace to ICM conventions, or (6) says "make this an ICM", "ICM this", "map this repo", "audit this folder", "what would a change hit", "build me a workspace", or "structure this for agents".
+description: Design any process, idea, problem, or body of knowledge into an ICM (Interpretable Context Methodology) workspace — folder structure as agent architecture — or restructure an existing folder, repo, or vault into one, or change one without decaying it. Use when the user wants to (1) turn a recurring workflow into an agent-runnable folder pipeline, (2) organize scattered notes, files, or knowledge into a library one AI agent can walk, (3) map a team or company as connected context ("context map", "second brain", "team brain", "knowledge base for AI"), (4) audit a codebase or mixed folder into a walkable edit map (objects, processes, change-impact) so later agents can change it without slurping the tree, (5) audit or restructure an existing workspace to ICM conventions, (6) fix, extend, review, or apply findings to a workspace that already exists and is in use, or (7) says "make this an ICM", "ICM this", "map this repo", "audit this folder", "what would a change hit", "build me a workspace", "structure this for agents", or "audit this workspace".
 ---
 
 # ICM Architect
@@ -21,7 +21,7 @@ Every ICM, whatever its form, obeys these. When building or restructuring, enfor
 4. **Every folder-level contract is explicit.** A `CONTEXT.md` per working folder: what it reads (inputs), what it does (process), what it writes (outputs), what a human checks. See [assets/templates/stage-CONTEXT.md](assets/templates/stage-CONTEXT.md).
 5. **Factory vs. product.** Reference material (rules, voice, schemas, templates — stable across runs) lives structurally apart from working artifacts (outputs, drafts — new every run). Configure the factory once; the product is what each run emits.
 6. **Every output is an edit surface.** Intermediate outputs are plain files a human can open, edit, and save before the next step reads them. Nothing moves forward until a person has read the last output.
-7. **Load only what the step needs.** An agent executing a step reads its contract, its references, and its inputs — not the whole workspace. 2,000–8,000 tokens per step is the healthy range.
+7. **Load only what the step needs.** An agent executing a step reads its contract, its references, and its inputs — not the whole workspace. The per-layer and per-step token budgets in [references/core.md](references/core.md) are limits, not observations: a file over its budget is a defect with a due date.
 8. **Plain text, linkable, queryable.** Markdown + YAML frontmatter. Links (`[[wikilinks]]` or relative paths) make it a graph; frontmatter labels make it queryable. One home per fact — a link beats a copy.
 9. **The filesystem is the state machine.** "Status" is derivable by scanning what exists in output folders. Generated indexes (file maps, logs) are rebuilt by script, never hand-edited.
 10. **Instantiate by copying.** New unit of work = copy a template folder, not a blank page. Keep templates in a `_templates/` or `_system/` folder.
@@ -30,7 +30,10 @@ Every ICM, whatever its form, obeys these. When building or restructuring, enfor
 
 - **Building from a described process, idea, or problem** → Build mode.
 - **An existing folder, repo, or vault that needs ICM structure** → Restructure mode.
+- **A built ICM that is being changed** — a fix, a review finding, a new rule, a stage that grew → Maintain mode.
 - **A body of work later agents must edit** (code, markdown, or mixed) → System map form. Read [references/system-map.md](references/system-map.md) after picking the form.
+
+Most work on a workspace older than a week is Maintain mode. Reaching for Build or Restructure there is how a small correction turns into a migration.
 
 ## Build mode
 
@@ -82,9 +85,23 @@ Real workspaces mix forms (a record library whose records are mini knowledge bun
 
 **6. Validate with the walk test.**
 
+## Maintain mode
+
+The workspace already exists and is in use; something is being fixed, added, or answered. This is where ICMs decay, because every individual change is locally reasonable and the damage is cumulative. Five rules; each one's evidence, and the protocol for reviewing a change, are in [references/maintain.md](references/maintain.md) — read it before applying findings to a live workspace.
+
+**1. A fix lands in the layer that owns the failing content.** Wrong rule → the shelf that owns the rule. Wrong value → the one file that owns values. Wrong ordering → the folder numbers. **A contract changes only when the contract's own words are wrong.** Adding a clause to the nearest `CONTEXT.md` is the default move and the wrong one; it is how contracts absorb payload and how a fact gets a second home.
+
+**2. The budget binds, and it binds per section.** A single whole-file number cannot tell you where to cut — budget Inputs, Process (per step), Outputs and the Human check separately, and work the remedies in the order [references/core.md](references/core.md) gives them. [assets/evaluate-stage.py](assets/evaluate-stage.py) measures all of it and names the remedy for each miss, so the loop is: measure, apply the remedy it names, measure again. Before adding a sentence, name the sentence that leaves.
+
+**3. Re-walk what you changed.** The walk test gates every change, scoped to the folders the change touched. Read every file you edited *after* you edited it — the file, not the diff. A findings list is a set of claims about the files, never a patch to apply.
+
+**4. Every claim gets a source, or it goes.** Any sentence asserting how something behaves — a flag, a mechanism, a threshold, a URL, a count — names where that is true: a symbol in the code, the file that owns values, a dated decision. An unsourceable claim is deleted, not hedged. Invented mechanism does more damage than duplication: a plausible false explanation teaches the reader to disbelieve the true one.
+
+**5. Machine-check the mechanical half, and know its ceiling.** Dead citations, section names not in the file they name, symbols and flags no code has, line citations past the end of a file: [assets/check-references.py](assets/check-references.py) does that pass. It cannot tell you whether a true-looking sentence is true, and a check that has never failed has not been shown to work — so "checks pass" means the citations resolve, and is never reported as more. Both scripts here carry `--self-test`; run it after changing either.
+
 ## The walk test
 
-Validate any ICM — new or restructured — by walking it cold, as an agent with no memory:
+Validate any ICM — new, restructured, or changed — by walking it cold, as an agent with no memory:
 
 - Open the root. Can you answer *where am I* and *where do I go for the current task* within the entry file plus at most two more reads?
 - Pick any stage/node. Does its contract name exact input paths, the job, the output, and the human check?
@@ -107,4 +124,7 @@ If a step fails, fix the structure — not by explaining more, but by moving or 
 - [references/core.md](references/core.md) — the five design principles, the five-layer context hierarchy, naming conventions, token discipline. Read when writing contracts or when a structural call is contested.
 - [references/forms.md](references/forms.md) — the six forms in depth: skeletons, moves, failure modes. Read at step 2 of Build mode or step 2 of Restructure mode.
 - [references/system-map.md](references/system-map.md) — audit pipeline for the System map form. Read when that form is chosen.
+- [references/maintain.md](references/maintain.md) — where a fix lands, holding the budget, sourcing claims, and how to review a change so the review finds real defects. Read at the start of Maintain mode.
 - [assets/templates/](assets/templates/) — copyable starters: `CLAUDE.md`, workspace `CONTEXT.md`, `stage-CONTEXT.md`, `node.md`, `object.md`, `process.md`, `schema.md`, `questionnaire.md`.
+- [assets/check-references.py](assets/check-references.py) — the mechanical cross-reference pass. Copy into the workspace and set the five constants at the top. It resolves the workspace from **the script's own location, not your cwd** — put it at the workspace root, or always pass `--root`.
+- [assets/evaluate-stage.py](assets/evaluate-stage.py) — scores a stage contract section by section against the budgets, counts the acts in its Human check, and names the remedy for each miss. It cannot tell an attestation from a transcription; it flags the count and asks you to classify. Takes stage directories as arguments, relative to your cwd. Run it before and after every change to a contract.
