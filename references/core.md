@@ -113,7 +113,22 @@ The split: **the contract names the step and the file it runs; the shelf carries
 
 A runbook shelf is one file per stage, not one per command: an operator mid-run wants one page open, not seven. Commands that several folders share move to the shared layer like any other fact with more than one reader.
 
-Rules: inputs are exact paths in backticks, scoped **working (this run)**, **reference (every run)** or **reference (only if disputed)** — the last is named but not loaded on a normal run, and demoting an input to it is the single biggest lever on a step's load. The process is numbered and short — constraints live in L3 files, not restated here. Exactly one human check, stated as something a person does, not a vague "review."
+That holds even when the shelf goes over its L3 budget, and it is the one exception to the L3 shelf remedies in [budgets.md](budgets.md) — the runbook is read start to finish while the stage runs, so splitting it costs the operator a page-turn mid-command and saves nothing, because both halves load anyway. When a runbook is too big, the fix is upstream of the split: lift shared commands to the shared layer, or find the material in it that a run does not execute — background, alternate routes, the UI path nobody takes any more — and move *that* out to a conditional shelf. If what is left is genuinely all executed every run, the stage is doing two jobs and wants splitting, not the file.
+
+Rules: inputs are exact paths in backticks, under one of **four** scopes:
+
+| Scope | Meaning | Counts toward the step's load |
+|---|---|---|
+| Working (this run) | produced upstream, read into context | yes |
+| Reference (every run) | a rule the step needs in hand | yes, at the section cited |
+| Reference (only if …) | named so a person can reach it; not opened on a normal run | **zero** |
+| Pass to scripts (never load) | the step hands the path to a command; no agent opens it | **zero** |
+
+The fourth is not a `Do NOT load` — the step needs the path — and not a reference, because nothing in it is read. Give it its own block and say why it is never opened (its size, or that it holds personal data), because [budgets.md](budgets.md) counts it as zero only when the contract has said so.
+
+**In a grouped list the indentation carries the scope.** A conditional reference nested under the every-run group is an every-run load, whatever its own words say. Scope changes need a new top-level entry. A path may be rooted at a shell variable (`$RUN/file.csv`) if the contract or its runbook binds that variable; an unbound variable is not an exact path.
+
+Demoting an input from every-run to conditional is the single biggest lever on a step's load. The process is numbered and short — constraints live in L3 files, not restated here. Exactly one human check, stated as something a person does, not a vague "review."
 
 ## Naming conventions
 

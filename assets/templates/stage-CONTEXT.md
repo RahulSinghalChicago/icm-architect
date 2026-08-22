@@ -11,10 +11,16 @@ One job: {the single thing this stage does}.
 - Working (this run): `../{NN-1}_{prev-stage}/output/{file}`
 - Reference (every run): `../../_shared/{rules-file}.md`
 - Reference (every run): `references/{stage-specific-guide}.md`
-- Reference (only if disputed): `../../_shared/{background}.md` — not loaded on a
-  normal run; named here so a person can reach it when a decision is contested
+- Reference (only if {the named thing that would send a person here}):
+  `../../_shared/{background}.md` — not opened on a normal run
+- Pass to scripts (never load): `{path/to/big-or-sensitive.csv}` — {why nothing opens
+  it: its size, or that it holds personal data}. The step hands this path to a command.
 
 Do NOT load: {anything an eager agent would wrongly pull in — other stages' references, prior runs, the whole _shared folder}.
+
+{Delete the scopes this stage does not use. Do not nest a scope under another —
+indentation reads as membership, so a conditional entry indented under the every-run
+group is an every-run load.}
 
 ## Process
 1. {Read the inputs.}
@@ -27,6 +33,10 @@ stage's references/ shelf and the step points at it.}
 
 ## Outputs
 - `{artifact}.md` → `output/`
+
+{`output/` is the default, not a rule. A product the whole run shares goes to the run's
+folder; a product that must never be committed goes to the quarantined folder. State the
+path the stage actually writes.}
 
 ## Human check
 {Three things and nothing else: the ACT the person performs, the ARTIFACT they look at,

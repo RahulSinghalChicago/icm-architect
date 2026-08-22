@@ -31,7 +31,9 @@ Budgets and the remedies when a layer is over are in [budgets.md](budgets.md). T
 
 **Additions compound and nobody notices.** Adding text is how a review finding gets answered — every round, by default. In the record above, the contracts grew monotonically across thirteen commits while genuinely becoming more correct, and the first reduction came at commit fourteen, only because someone measured. Correctness and size move independently. Track size explicitly or it only goes one way.
 
-**Measure after, not before.** The reduction that finally worked came almost entirely from one line: demoting a single reference from every-run to dispute-only, after checking that everything a run needed from it was already in two files the stage read anyway. That one line beat thirty text moves put together, in the same commit, against the same files. If you are editing sentences to save tokens, you are pulling the small lever.
+**Ratchet the number; do not re-litigate it.** Record each contract's measured size in a checked-in baseline file, and have your checker fail when a contract *grows* past its recorded size — with a deliberate switch to re-baseline when the growth is intended. Absolute budgets cannot gate a workspace that is over them everywhere: a check red on every folder is a check nobody runs. A ratchet is green on the day you install it and can only be loosened on purpose.
+
+**Measure after, not before.** The reduction that finally worked came almost entirely from one line: demoting a single reference from every-run to conditional, after checking that everything a run needed from it was already in two files the stage read anyway. That one line beat thirty text moves put together, in the same commit, against the same files. If you are editing sentences to save tokens, you are pulling the small lever.
 
 ## Re-walking a change
 
@@ -48,6 +50,8 @@ The walk test in `SKILL.md` gates every change, not just the build. Scope it to 
 Every sentence that asserts how something behaves — a flag, a mechanism, a threshold, a URL, a count, a consequence — must name where that is true. Acceptable sources: a symbol or line in the code, the file that owns constants, a run record, a decision with a date and an owner. "It is obviously true" is not a source, and neither is an earlier draft of the same sentence.
 
 **Unsourceable claims are deleted, not softened.** Hedging an invented mechanism leaves the invention in place and removes the only signal that it is doubtful.
+
+**A claim that was true when written and has since been corrected elsewhere is the more dangerous case**, because it is sourced, dated, and wrong. Correct it where it sits — do not leave the reader to discover that another file disagrees. Three moves, together: state what is now known, point at the one file that owns the fact rather than restating its evidence, and record what the sentence used to say and what following it would cost. The last is not ceremony: without it the next reader cannot tell a correction from a contradiction, and a superseded observation stated as the only behaviour is exactly how a reader ends up waiting on something that is never coming.
 
 **Invented mechanism is worse than duplication, and it is what audits actually find.** A duplicate is two copies of something true. A fabricated mechanism is confident and wrong, and it does damage in the direction nobody plans for: a workspace that told operators a misnamed column would make a script "select nothing, silently" was teaching them to disbelieve the correct, named error the script actually raises. In another case a fabricated URL was written into the one file whose entire purpose is being the single home for every value, on the row a gate signer follows.
 

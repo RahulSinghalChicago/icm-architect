@@ -86,6 +86,85 @@ def human_acts(body: str) -> int:
     return max(announced, enumerated, 1)
 
 
+# ------------------------------------------------------------------ whole-step load
+# The section scores cannot see the biggest remedy. Demoting a reference from every-run
+# to conditional leaves the contract the same size -- or one line longer -- while cutting
+# whatever that reference costs out of what the step actually reads. Counting rule:
+# budgets.md, "How to count the whole load".
+EVERY_RUN = re.compile(r"every run", re.I)
+CONDITIONAL = re.compile(r"only if|only when|if disputed|dispute only|when contested", re.I)
+NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
+CITE = re.compile(r"`([\w./-]+\.(?:md|csv|py))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d])?")
+
+
+def named_section(path: Path, name: str) -> str:
+    out, on = [], False
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if re.match(r"^#{2,4}\s", line):
+            on = name.lower() in line.lower()
+            continue
+        if on:
+            out.append(line)
+    return "\n".join(out)
+
+
+def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]:
+    """(total, [(what, tokens, why)]). Zero-cost entries are reported, not hidden --
+    a demotion should be visible as a line costing nothing, not as a line that vanished."""
+    rows: list[tuple[str, int, str]] = []
+    for name in ("CLAUDE.md", "AGENTS.md", "CONTEXT.md"):
+        f = root / name
+        if f.exists() and not f.is_symlink():
+            rows.append((f"L0/L1 {name}", tokens(f.read_text(encoding="utf-8", errors="ignore")), "loads on every step"))
+    contract = stage / "CONTEXT.md"
+    text = contract.read_text(encoding="utf-8", errors="ignore")
+    rows.append(("L2 the contract", tokens(text), ""))
+
+    inputs = sections(text).get("Inputs", "")
+    # Parse by ENTRY, not by line. A bullet's scope and its section names routinely wrap
+    # across several lines, and a line-wise reader takes the scope from one line and the
+    # sections from another -- under-counting a two-section citation by its second section.
+    entries: list[str] = []
+    for line in inputs.splitlines():
+        if re.match(r"^\s*[-*]\s", line) or (line.strip() and not line.startswith((" ", "\t"))):
+            entries.append(line)
+        elif entries:
+            entries[-1] += " " + line.strip()
+        else:
+            entries.append(line)
+
+    scope = "every run"
+    for entry in entries:
+        indented = bool(re.match(r"^\s+[-*]\s", entry))
+        if not indented:                      # a top-level entry re-declares the scope
+            # Classify from the LABEL -- the text before the first cited path -- not the
+            # whole entry. A conditional entry whose prose reads "not loaded on a normal
+            # run" would otherwise be filed under the never-load scope.
+            label_txt = entry.split("`", 1)[0]
+            if CONDITIONAL.search(label_txt):  scope = "conditional"
+            elif NEVER.search(label_txt):      scope = "never"
+            elif EVERY_RUN.search(label_txt):  scope = "every run"
+            elif NEVER.search(entry):          scope = "never"
+            elif CONDITIONAL.search(entry):    scope = "conditional"
+        for m in CITE.finditer(entry):
+            rel = m.group(1)
+            f = next((c for c in (root / rel, stage / rel, contract.parent / rel) if c.exists()), None)
+            if f is None:
+                continue
+            tail = entry[m.end(1):]
+            names = [n for n in re.findall(r"[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d]", tail)
+                     if named_section(f, n).strip()]
+            label = f"  {rel}" + (f" ({len(names)} sections)" if len(names) > 1
+                                  else f' ("{names[0]}")' if names else " (whole file)")
+            if scope != "every run":
+                rows.append((label, 0, scope))
+                continue
+            body = "\n".join(named_section(f, n) for n in names) if names \
+                else f.read_text(encoding="utf-8", errors="ignore")
+            rows.append((label, tokens(body), "every run"))
+    return sum(r[1] for r in rows), rows
+
+
 def evaluate(stage: Path) -> list[tuple[str, str, str]]:
     """Returns (severity, criterion, detail). severity in FAIL / WARN."""
     out = []
@@ -135,8 +214,10 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
 
     if [o for o in over if o[3] == "FAIL"] and acts == 1:
         out.append(("NOTE", "remedy", (
-            "one act, so this is not a split. Work remedies 1 and 2 — change what it loads, "
-            "then push the over-budget sections onto its references/ shelf — and re-measure.")))
+            "the Human check reads as one act, so the split test does not fire — but this counts "
+            "prose shape, not gates. Read the stage's gate rows before concluding anything. Work "
+            "remedies 1 and 2 (change what it loads; push over-budget sections onto the shelf), "
+            "then re-measure BOTH the sections and the whole-step load (--load).")))
 
     shelf = stage / "references"
     if [o for o in over if o[3] == "FAIL"] and not shelf.exists():
@@ -166,6 +247,25 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
 
 def main() -> int:
     worst = 0
+    if "--load" in sys.argv[1:]:
+        args = [a for a in sys.argv[1:] if a != "--load"]
+        root = Path.cwd()
+        for a in args:
+            stage = Path(a)
+            if not (stage / "CONTEXT.md").exists():
+                print(f"FAIL  {a}: no CONTEXT.md")
+                worst = 1
+                continue
+            total, rows = step_load(stage, root)
+            print(f"\n{stage.name} — whole-step load")
+            for what, n, why in rows:
+                print(f"  {what:<62}{n:>6}  {why}")
+            band = "INSIDE 2k-8k" if 2000 <= total <= 8000 else "OUTSIDE 2k-8k"
+            print(f"  {'':-<62}{'':->6}")
+            print(f"  {'TOTAL':<62}{total:>6}  {band}")
+            if not 2000 <= total <= 8000:
+                worst = 1
+        return worst
     if sys.argv[1:]:
         stages, bad = [], []
         for a in sys.argv[1:]:

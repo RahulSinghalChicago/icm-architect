@@ -91,13 +91,13 @@ The workspace already exists and is in use; something is being fixed, added, or 
 
 **1. A fix lands in the layer that owns the failing content.** Wrong rule → the shelf that owns the rule. Wrong value → the one file that owns values. Wrong ordering → the folder numbers. **A contract changes only when the contract's own words are wrong.** Adding a clause to the nearest `CONTEXT.md` is the default move and the wrong one; it is how contracts absorb payload and how a fact gets a second home.
 
-**2. The budget binds, and it binds per section.** A single whole-file number cannot tell you where to cut — budget Inputs, Process (per step), Outputs and the Human check separately, and work the remedies in the order [references/budgets.md](references/budgets.md) gives them. [assets/evaluate-stage.py](assets/evaluate-stage.py) measures all of it and names the remedy for each miss, so the loop is: measure, apply the remedy it names, measure again. Before adding a sentence, name the sentence that leaves.
+**2. The budget binds, and it binds per section.** A single whole-file number cannot tell you where to cut — budget Inputs, Process (per step), Outputs and the Human check separately, and work the remedies in the order [references/budgets.md](references/budgets.md) gives them. [assets/evaluate-stage.py](assets/evaluate-stage.py) scores the four sections and names the remedy for each miss. It does **not** score the whole-step load, and that is the number the biggest remedy moves: demoting a reference leaves the contract the same size or a line longer while cutting thousands of tokens from what the step reads. Measure both — `--load` resolves the Inputs list against the workspace — or the loop cannot see its own best move. Before adding a sentence, name the sentence that leaves.
 
 **3. Re-walk what you changed.** The walk test gates every change, scoped to the folders the change touched. Read every file you edited *after* you edited it — the file, not the diff. A findings list is a set of claims about the files, never a patch to apply.
 
 **4. Every claim gets a source, or it goes.** Any sentence asserting how something behaves — a flag, a mechanism, a threshold, a URL, a count — names where that is true: a symbol in the code, the file that owns values, a dated decision. An unsourceable claim is deleted, not hedged. Invented mechanism does more damage than duplication: a plausible false explanation teaches the reader to disbelieve the true one.
 
-**5. Machine-check the mechanical half, and know its ceiling.** Dead citations, section names not in the file they name, symbols and flags no code has, line citations past the end of a file: [assets/check-references.py](assets/check-references.py) does that pass. It cannot tell you whether a true-looking sentence is true, and a check that has never failed has not been shown to work — so "checks pass" means the citations resolve, and is never reported as more. Both scripts here carry `--self-test`; run it after changing either.
+**5. Machine-check the mechanical half, and know its ceiling.** Dead citations, section names not in the file they name, symbols and flags no code has, line citations past the end of a file: [assets/check-references.py](assets/check-references.py) does that pass. It cannot tell you whether a true-looking sentence is true, and a check that has never failed has not been shown to work — so "checks pass" means the citations resolve, and is never reported as more. `check-references.py` ships a `--self-test`; run it after changing that script, so its checks have been seen to fail before you trust them to pass.
 
 ## The walk test
 
@@ -105,7 +105,7 @@ Validate any ICM — new, restructured, or changed — by walking it cold, as an
 
 - Open the root. Can you answer *where am I* and *where do I go for the current task* within the entry file plus at most two more reads?
 - Pick any stage/node. Does its contract name exact input paths, the job, the output, and the human check?
-- Can you state pipeline status purely by scanning what exists in `output/` folders (or node frontmatter)?
+- Can you state pipeline status purely by scanning what exists where products land — `output/` folders, a run folder, node frontmatter?
 - Is any routing file carrying content payload? Move the payload to a shelf; leave a pointer.
 - Is any fact stored in two places? Pick one home; link from the other.
 - Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md). That file is the one home for every token figure.

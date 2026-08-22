@@ -14,13 +14,12 @@ contract, when a folder feels heavy, or when a structural call about size is con
 | L4 | `output/`, run artifacts | What am I working with? | product (per-run) | varies |
 | — | one step's whole load (L0 + L2 + its L3 + its inputs) | | | 2k–8k tokens |
 
-**How to count the whole load, because two defensible readings give opposite verdicts.** A
-reference cited to a section or a table row counts as **that section**, not the whole file. A
-reference scoped *only if disputed* counts as **zero** — it is named, not loaded. A working input
-handed to a script and never read into context counts as **zero**; it is the script's input, not the
-agent's. Count anything cited without a scope as the whole file, because that is what a reader will
-do with it. Without this rule the same stage measures 9,560 tokens or 1,200 depending on who counts,
-and the claim that demoting a reference is the biggest lever cannot be checked.
+**How to count the whole load, because two defensible readings give opposite verdicts.** Each input
+counts at its scope, per the table in [core.md](core.md): a citation to a named section counts as
+**that section**, the two zero-scopes count as **zero**, and anything cited *without* a scope counts
+as the whole file — because that is what a reader will do with it. Without this rule the same stage
+measures 9,560 tokens or 1,200 depending on who counts, and the claim that demoting a reference is
+the biggest lever cannot be checked.
 
 These are the one home for the numbers, and they are limits rather than observations. A file over its budget is a defect with a due date; the reason is in Token discipline below. Measure before arguing — a contract that *feels* tight is routinely 4–8× over, because density reads as rigour.
 
@@ -46,13 +45,19 @@ Do not read the formula as licence to grow: a section over its own budget is ove
 - L3 vs L4 is the factory/product split. L3 = the recipe (voice.md, design-system.md, schema.md). L4 = the ingredients and the dish (research-output.md, draft.md).
 - Large L3 collections get their own internal `CONTEXT.md` router — the L1 routing pattern applied recursively. The hierarchy is self-similar at every depth; apply it inside any folder that grows past easy scanning.
 
+### Where the product lands
+
+`output/` in the templates is the default, not a requirement: a subfolder inside the stage, so status is answerable by scanning `stages/*/output/`. Two cases break it, and both are common. When a product is **produced by a run rather than a stage** — an evidence file several stages append to, a ledger the whole cycle shares — it belongs in that run's folder, not in any one stage's. When a product **must not be committed** — customer rows, credentials, anything with personal data — it belongs in the workspace's quarantined folder, whatever that is called.
+
+Either way the contract's Outputs section states the real path, and one file says where products land. Invariant 9 is satisfied by *a* scannable location, not by the folder being named `output/`. What breaks the invariant is a contract that says `output/` because the template did while the run writes somewhere else.
+
 ## Token discipline
 
 The budgets are in the hierarchy table above. They keep the model in the range where it performs best and keep every load auditable. A monolithic everything-prompt for the same pipeline typically runs 30k–50k tokens, most of it irrelevant to the current step; ICM never loads those tokens rather than compressing them later.
 
 Over budget is a defect, so treat it like one — with a cause and a fix, not a note. Three fixes, in order of how much they move:
 
-1. **Change what the step loads.** Demote a reference from every-run to only-if-disputed, or drop it entirely once you check that everything the step actually needs from it is already in a file the step already reads. This is the big lever, and it is routinely worth more than every prose edit combined.
+1. **Change what the step loads.** Demote a reference from every-run to conditional, or drop it entirely once you check that everything the step actually needs from it is already in a file the step already reads. This is the big lever, and it is routinely worth more than every prose edit combined.
 2. **Push detail down.** Method that only one folder ever reads goes on that folder's own `references/` shelf; the contract keeps a pointer. Shared method goes to the shared shelf. The contract names the file and does not restate its content.
 3. **Split the folder.** If a contract is over budget because the folder genuinely does two jobs, the budget is telling you about invariant 1, not about your prose.
 
@@ -70,7 +75,11 @@ Splitting is the most expensive move in the method: numbering carries sequencing
 
 **Inputs needs its own list, because the three above do not reach it.** It is usually the section that binds, and remedy 1 cannot demote a working input, remedy 3 is barred when the stage has one act, and concision is ruled out below. What works, in order:
 
-1. **Demote every-run to only-if-disputed.** The single biggest lever in the method. A reference a run does not actually open is named but not loaded — the contract still tells a person where to reach it.
+1. **Demote every-run to conditional.** The single biggest lever in the method.
+
+   *The test:* **could the step be executed with this file unopened?** A reference that justifies a rule the contract already states inline, or holds a fuller invocation than this stage runs, is conditional however often the workspace cites it elsewhere. "Is it named in Inputs?" is not the test — everything in Inputs is named.
+
+   *Then name the condition that would make a person reach for it* — `only if the fan-out rule is questioned`, `only if an export misbehaves` — not the generic word "disputed". A scope nobody can trigger is a scope nobody honours. Any `only if …` wording counts as zero; the words after "only if" are for the reader, not the counter.
 2. **Narrow a whole-file citation to a section or a table row.** `policy.md` becomes `policy.md` ("Suppression"). The line stays the same length; the load falls by most of the file.
 3. **Move the *reason for the scope* to the shelf, keep the path and the scope.** "…, because that section also covers stage 06's report" is reasoning. `path` + `("Section")` is the rule.
 4. **Group by scope.** Several paths that share a scope belong on one line, not on five.
