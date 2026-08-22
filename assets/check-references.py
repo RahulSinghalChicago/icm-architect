@@ -45,9 +45,17 @@ from pathlib import Path
 
 # ---------------------------------------------------------------- configuration
 
+# A workspace with a quarantined tree -- customer rows, credentials, anything the data
+# policy says must not leave a folder -- MUST name that folder here before the first run.
+# This is not about noise. The checker opens and reads every file it walks, so an unlisted
+# quarantine means the one tree nothing should open is being read by tooling on every
+# check, and its per-run artifact names come back as findings against paths that were
+# never citations. Add the folder name to SKIP below.
+#
 # Folders never walked. History and generated trees cite what was true when they
 # were written; editing them to satisfy a checker rewrites the record.
 SKIP = {".git", "__pycache__", "node_modules", ".venv", "_archive", "runs"}
+# + every quarantined folder this workspace has. See the note above; there is no safe default.
 
 # Live files that happen to sit inside a SKIP folder and should still be checked.
 LIVE_IN_SKIPPED: set[str] = set()
