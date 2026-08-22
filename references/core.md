@@ -126,6 +126,8 @@ Rules: inputs are exact paths in backticks, under one of **four** scopes:
 
 The fourth is not a `Do NOT load` — the step needs the path — and not a reference, because nothing in it is read. Give it its own block and say why it is never opened (its size, or that it holds personal data), because [budgets.md](budgets.md) counts it as zero only when the contract has said so.
 
+**Cite a section in quotes, right after the path.** `` `_shared/constants.md`, "Resend Eligibility" `` — and one entry per section when a step needs several. This is a format rule and it looks like fussiness until you measure: a citation written `` `constants.md` (Resend Eligibility; Purchase Matching) `` is perfectly clear to a person and, to anything counting, indistinguishable from citing the whole file. Two stages in the workspace this was written from were each charged 4,766 tokens for a file they needed three sections of, and neither contract was wrong — only unquoted. If a scope cannot be read mechanically it is a comment, not a scope.
+
 **In a grouped list the indentation carries the scope.** A conditional reference nested under the every-run group is an every-run load, whatever its own words say. Scope changes need a new top-level entry. A path may be rooted at a shell variable (`$RUN/file.csv`) if the contract or its runbook binds that variable; an unbound variable is not an exact path.
 
 Demoting an input from every-run to conditional is the single biggest lever on a step's load. The process is numbered and short — constraints live in L3 files, not restated here. Exactly one human check, stated as something a person does, not a vague "review."

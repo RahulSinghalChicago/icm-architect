@@ -9,7 +9,8 @@ One job: {the single thing this stage does}.
 
 ## Inputs
 - Working (this run): `../{NN-1}_{prev-stage}/output/{file}`
-- Reference (every run): `../../_shared/{rules-file}.md`
+- Reference (every run): `../../_shared/{rules-file}.md`, "{Exact Heading}" — one entry
+  per section, heading in double quotes so the scope is machine-readable
 - Reference (every run): `references/{stage-specific-guide}.md`
 - Reference (only if {the named thing that would send a person here}):
   `../../_shared/{background}.md` — not opened on a normal run

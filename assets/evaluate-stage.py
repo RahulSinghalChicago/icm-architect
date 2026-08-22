@@ -95,6 +95,10 @@ EVERY_RUN = re.compile(r"every run", re.I)
 CONDITIONAL = re.compile(r"only if|only when|if disputed|dispute only|when contested", re.I)
 NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
 CITE = re.compile(r"`([\w./-]+\.(?:md|csv|py))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d])?")
+# A reader writes `file.md` (Section A; Section B) and believes they have scoped it. The
+# counter only honours quotes, so that citation is charged as the WHOLE file -- silently,
+# and the difference can be thousands of tokens. Detect the near-miss and say so.
+LOOKS_SCOPED = re.compile(r"`[\w./-]+\.(?:md|csv|py)`\s*\(([^)\n]{3,120})\)")
 
 
 def named_section(path: Path, name: str) -> str:
@@ -154,8 +158,16 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
             tail = entry[m.end(1):]
             names = [n for n in re.findall(r"[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d]", tail)
                      if named_section(f, n).strip()]
+            note = ""
+            if not names:
+                near = LOOKS_SCOPED.search(entry[m.start():])
+                if near and not near.group(1).lower().startswith(("whole", "http")):
+                    # only a near-miss if those parenthesised words are real headings
+                    cand = [c.strip() for c in re.split(r"[;,]", near.group(1))]
+                    if any(named_section(f, c).strip() for c in cand):
+                        note = "  <- UNQUOTED SCOPE, charged whole"
             label = f"  {rel}" + (f" ({len(names)} sections)" if len(names) > 1
-                                  else f' ("{names[0]}")' if names else " (whole file)")
+                                  else f' ("{names[0]}")' if names else " (whole file)") + note
             if scope != "every run":
                 rows.append((label, 0, scope))
                 continue
