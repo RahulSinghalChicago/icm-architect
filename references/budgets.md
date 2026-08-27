@@ -81,8 +81,17 @@ Splitting is the most expensive move in the method: numbering carries sequencing
 
    *Then name the condition that would make a person reach for it* — `only if the fan-out rule is questioned`, `only if an export misbehaves` — not the generic word "disputed". A scope nobody can trigger is a scope nobody honours. Any `only if …` wording counts as zero; the words after "only if" are for the reader, not the counter.
 2. **Narrow a whole-file citation to a section or a table row.** `policy.md` becomes `policy.md` ("Suppression"). The line stays the same length; the load falls by most of the file.
-3. **Move the *reason for the scope* to the shelf, keep the path and the scope.** "…, because that section also covers stage 06's report" is reasoning. `path` + `("Section")` is the rule.
-4. **Group by scope.** Several paths that share a scope belong on one line, not on five.
+3. **If the thing you need is not a heading, put one in the target file.** Narrowing only works on
+   something a reader and a counter can both find. One workspace kept its section index as a bare
+   `Sections:` line; a contract citing "the Sections index line only" was charged the whole
+   4,766-token file, and it was not wrong — there was nothing to cite. Adding a `## Sections`
+   heading to that file, moving no content and changing no rule, took the charge to 41. Change the
+   target so the scope becomes readable, rather than rewording the citation. **A table row is the
+   case with no fix:** it cannot be scoped mechanically at all, so a stage needing one URL from a
+   row pays for its whole section every run. Record that as a known cost; never write a citation
+   implying a tighter scope than any tool can honour.
+4. **Move the *reason for the scope* to the shelf, keep the path and the scope.** "…, because that section also covers stage 06's report" is reasoning. `path` + `("Section")` is the rule.
+5. **Group by scope.** Several paths that share a scope belong on one line, not on five. The scope a line's label carries is what they share; a quoted section name binds only to the path it follows (see [core.md](core.md), "Cite a section in quotes, right after the path").
 
 **Rule 4 in Maintain mode and this budget do not conflict, though they look like they do.** Rule 4 says a *claim about behaviour* names its source. An Inputs entry is not a claim — it is a path and a scope, and the path **is** the source. What the budget forbids is the sentence explaining why that scope was chosen, which is reasoning about a decision, not evidence for a behaviour. Keep the citation; move the justification.
 

@@ -106,6 +106,7 @@ Validate any ICM — new, restructured, or changed — by walking it cold, as an
 - Open the root. Can you answer *where am I* and *where do I go for the current task* within the entry file plus at most two more reads?
 - Pick any stage/node. Does its contract name exact input paths, the job, the output, and the human check?
 - Can you state pipeline status purely by scanning what exists where products land — `output/` folders, a run folder, node frontmatter?
+- Walk the Process and the Human check. Does every file, section and command they send you to appear in Inputs, at the scope it is actually used? A file a step reads but never declares makes the whole-step load read smaller than it is — and pushing detail onto a shelf is how it happens, because the pointer lands in a step and the Inputs line never follows it.
 - Is any routing file carrying content payload? Move the payload to a shelf; leave a pointer.
 - Is any fact stored in two places? Pick one home; link from the other.
 - Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md). That file is the one home for every token figure.

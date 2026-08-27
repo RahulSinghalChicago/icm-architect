@@ -138,6 +138,7 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
             entries.append(line)
 
     scope = "every run"
+    counted: set[tuple[str, str, tuple[str, ...]]] = set()
     for entry in entries:
         indented = bool(re.match(r"^\s+[-*]\s", entry))
         if not indented:                      # a top-level entry re-declares the scope
@@ -150,17 +151,27 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
             elif EVERY_RUN.search(label_txt):  scope = "every run"
             elif NEVER.search(entry):          scope = "never"
             elif CONDITIONAL.search(entry):    scope = "conditional"
-        for m in CITE.finditer(entry):
+        cites = list(CITE.finditer(entry))
+        for i, m in enumerate(cites):
             rel = m.group(1)
             f = next((c for c in (root / rel, stage / rel, contract.parent / rel) if c.exists()), None)
             if f is None:
                 continue
-            tail = entry[m.end(1):]
+            # A quoted heading belongs to the path it FOLLOWS -- core.md, "Cite a section in
+            # quotes, right after the path". Scanning to the end of the entry let an unscoped
+            # path swallow the NEXT path's section name whenever that name was also a heading
+            # in the earlier file, and charge itself that one section instead of the whole
+            # file. Silent, order-dependent, and always in the direction that hides load: a
+            # 1,642-token file cited with no scope was charged 1. named_section matches by
+            # substring, so single words -- Outputs, Index, Convention -- collide across
+            # unrelated files. Bound both slices at the next citation.
+            stop = cites[i + 1].start() if i + 1 < len(cites) else len(entry)
+            tail = entry[m.end(1):stop]
             names = [n for n in re.findall(r"[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d]", tail)
                      if named_section(f, n).strip()]
             note = ""
             if not names:
-                near = LOOKS_SCOPED.search(entry[m.start():])
+                near = LOOKS_SCOPED.search(entry[m.start():stop])
                 if near and not near.group(1).lower().startswith(("whole", "http")):
                     # only a near-miss if those parenthesised words are real headings
                     cand = [c.strip() for c in re.split(r"[;,]", near.group(1))]
@@ -171,6 +182,15 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
             if scope != "every run":
                 rows.append((label, 0, scope))
                 continue
+            # A reader opens a file once. The same path at the same scope and sections,
+            # cited on two Inputs lines -- routinely a pointer in one bullet and the
+            # declaration in another -- was charged twice. Report the repeat so it stays
+            # visible, and count it once.
+            key = (str(f), scope, tuple(names))
+            if key in counted:
+                rows.append((label + "  <- already counted above", 0, "every run"))
+                continue
+            counted.add(key)
             body = "\n".join(named_section(f, n) for n in names) if names \
                 else f.read_text(encoding="utf-8", errors="ignore")
             rows.append((label, tokens(body), "every run"))
