@@ -81,6 +81,13 @@ Splitting is the most expensive move in the method: numbering carries sequencing
 
    *Then name the condition that would make a person reach for it* — `only if the fan-out rule is questioned`, `only if an export misbehaves` — not the generic word "disputed". A scope nobody can trigger is a scope nobody honours. Any `only if …` wording counts as zero; the words after "only if" are for the reader, not the counter.
 2. **Narrow a whole-file citation to a section or a table row.** `policy.md` becomes `policy.md` ("Suppression"). The line stays the same length; the load falls by most of the file.
+
+   **A section citation drops everything before the first heading, silently.** A file's preamble is
+   where authors put the mental model and — worse — where they bind shell variables. Narrowing a
+   file whose opening reads `RUN=$REPO/...` unbinds every `$RUN` in the contract, which is the
+   defect [core.md](core.md) names when it says an unbound variable is not an exact path. Before
+   narrowing, read what sits above the first `##`. If it is load-bearing, give it a heading (remedy
+   3) rather than losing it.
 3. **If the thing you need is not a heading, put one in the target file.** Narrowing only works on
    something a reader and a counter can both find. One workspace kept its section index as a bare
    `Sections:` line; a contract citing "the Sections index line only" was charged the whole
