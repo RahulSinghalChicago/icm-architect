@@ -79,6 +79,8 @@ Everything else belongs somewhere other than this section:
 
 The test: a person who has never read this workspace should be able to perform the act from these words alone, and know what would make them refuse to sign. If a sentence does not move them toward doing or refusing, it is not a Human check sentence.
 
+**Say when the act happens, if it is not at the end.** The section sits last in the file; that is layout, not sequence. When the judgement has to precede an irreversible Process step, name the step — "*Before step 4*, a person opens … with their own eyes". When it can only be made after one, because a check on what is now live cannot precede publication, the position is already right and needs no note. An unqualified check reads as "after the Process", so a mid-Process act that says nothing about timing gets performed too late — and that failure survives every budget and reference check, because every sentence in the section is true. Moving the act is the fix; splitting the folder so the irreversible step gets its own gate is not, because the new stage's gate still cannot precede its own publication. This is ordering *within* a folder — invariant 6 governs the handoff *between* folders and does not reach it.
+
 Before — 139 tokens, and only the middle third is the check:
 
 ```markdown
