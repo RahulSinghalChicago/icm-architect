@@ -289,8 +289,8 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
     if inputs and not re.search(rf"`[\w$./-]+\.(?:{EXT})`|`\$\w+/", inputs):
         out.append(("WARN", "exact input paths", "Inputs names no concrete path"))
 
-    if re.search(r"`[\w./-]+\.(md|py|csv)`\s*[,;]?\s*(?:lines?\s*)?:\d", text) or \
-       re.search(r"`[\w./-]+\.(md|py|csv):\d", text):
+    if re.search(rf"`[\w./-]+\.(?:{EXT})`\s*[,;]?\s*(?:lines?\s*)?:\d", text) or \
+       re.search(rf"`[\w./-]+\.(?:{EXT}):\d", text):
         out.append(("WARN", "no line citations", (
             "cites a file by line number; those drift the next time it is edited. Cite a "
             "section name or a code symbol. A CONTRACT is held to a stricter standard than the "
