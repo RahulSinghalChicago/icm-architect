@@ -8,6 +8,8 @@ in the order budgets.md says to try them.
 
     python3 evaluate-stage.py stages/01_export-evidence          # one stage
     python3 evaluate-stage.py stages/*/                          # the whole pipeline
+    python3 evaluate-stage.py --load stages/01_export-evidence   # the whole-step load;
+                                                                 # run from the workspace root
 
 Exit 1 if any stage fails. What it CANNOT judge: whether the contract is true, whether
 its human check would catch what it exists to catch, or whether a pointer leads
@@ -41,9 +43,9 @@ TOLERANCE = 1.20
 # Rough estimator: whitespace-words x this. Calibrated against one English
 # prose-and-paths markdown workspace, so re-derive it for yours -- code blocks, JSON,
 # long identifiers and non-Latin scripts all tokenize far denser than this assumes.
-# The whole-step budget (budgets.md, hierarchy table) is deliberately NOT checked here:
+# The whole-step budget (budgets.md, hierarchy table) is not among the section scores:
 # it depends on what a contract's Inputs resolve to, which needs the workspace, not
-# the contract.
+# the contract. --load measures it, with the cwd as the workspace root (step_load).
 TOKENS_PER_WORD = 1.359
 
 REQUIRED = ("Inputs", "Process", "Outputs", "Human check")
@@ -92,13 +94,19 @@ def human_acts(body: str) -> int:
 # whatever that reference costs out of what the step actually reads. Counting rule:
 # budgets.md, "How to count the whole load".
 EVERY_RUN = re.compile(r"every run", re.I)
+WORKING = re.compile(r"this run|working", re.I)     # core.md's first scope; counts, whole file
 CONDITIONAL = re.compile(r"only if|only when|if disputed|dispute only|when contested", re.I)
 NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
-CITE = re.compile(r"`([\w./-]+\.(?:md|csv|py))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d])?")
+# One extension list for every path read out of a contract, the same list as PATH_RE in
+# check-references.py so the two tools agree on what a path is. A .json or .yaml Working
+# input used to match nothing here and left no row at any scope. A `$VAR/`-rooted path is
+# matched so that it appears as a row; it resolves only if the variable is a real folder.
+EXT = r"md|csv|py|json|ya?ml|txt"
+CITE = re.compile(rf"`([\w$./-]+\.(?:{EXT}))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{{3,60}})[\"\u201d])?")
 # A reader writes `file.md` (Section A; Section B) and believes they have scoped it. The
 # counter only honours quotes, so that citation is charged as the WHOLE file -- silently,
 # and the difference can be thousands of tokens. Detect the near-miss and say so.
-LOOKS_SCOPED = re.compile(r"`[\w./-]+\.(?:md|csv|py)`\s*\(([^)\n]{3,120})\)")
+LOOKS_SCOPED = re.compile(rf"`[\w$./-]+\.(?:{EXT})`\s*\(([^)\n]{{3,120}})\)")
 
 
 def named_section(path: Path, name: str) -> str:
@@ -141,21 +149,35 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
     counted: set[tuple[str, str, tuple[str, ...]]] = set()
     for entry in entries:
         indented = bool(re.match(r"^\s+[-*]\s", entry))
-        if not indented:                      # a top-level entry re-declares the scope
-            # Classify from the LABEL -- the text before the first cited path -- not the
-            # whole entry. A conditional entry whose prose reads "not loaded on a normal
-            # run" would otherwise be filed under the never-load scope.
+        unscoped = False
+        if not indented:
+            # A top-level entry declares its own scope, and only an indented entry inherits
+            # one (core.md, "In a grouped list the indentation carries the scope"). Classify
+            # from the LABEL -- the text before the first cited path -- and from nothing
+            # else: a gloss after the path is for the reader. An earlier version let the
+            # scope carry over from the previous top-level entry and, when the label had
+            # no scope word, searched the whole entry, so a Working input listed after a
+            # conditional one was charged 0, and a Working input whose gloss said "do not
+            # load prior runs" was charged 0 -- the same two lines charged whole in the
+            # other order. A label with no scope word is charged whole and says so, per
+            # budgets.md, "How to count the whole load".
             label_txt = entry.split("`", 1)[0]
             if CONDITIONAL.search(label_txt):  scope = "conditional"
             elif NEVER.search(label_txt):      scope = "never"
-            elif EVERY_RUN.search(label_txt):  scope = "every run"
-            elif NEVER.search(entry):          scope = "never"
-            elif CONDITIONAL.search(entry):    scope = "conditional"
+            elif EVERY_RUN.search(label_txt) or WORKING.search(label_txt):
+                scope = "every run"
+            else:
+                scope, unscoped = "every run", True
         cites = list(CITE.finditer(entry))
         for i, m in enumerate(cites):
             rel = m.group(1)
             f = next((c for c in (root / rel, stage / rel, contract.parent / rel) if c.exists()), None)
             if f is None:
+                # Not found from the root, the stage, or beside the contract. On a fresh
+                # build that is the upstream output not yet produced; otherwise a typo or
+                # the wrong cwd. Either way the line stays visible: a dropped row made the
+                # total read smaller than the contract declares.
+                rows.append((f"  {rel}  <- NOT FOUND, counted 0", 0, scope))
                 continue
             # A quoted heading belongs to the path it FOLLOWS -- core.md, "Cite a section in
             # quotes, right after the path". Scanning to the end of the entry let an unscoped
@@ -177,6 +199,8 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                     cand = [c.strip() for c in re.split(r"[;,]", near.group(1))]
                     if any(named_section(f, c).strip() for c in cand):
                         note = "  <- UNQUOTED SCOPE, charged whole"
+            if unscoped:
+                note += "  <- NO SCOPE LABEL, charged whole"
             label = f"  {rel}" + (f" ({len(names)} sections)" if len(names) > 1
                                   else f' ("{names[0]}")' if names else " (whole file)") + note
             if scope != "every run":
@@ -262,7 +286,7 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
         out.append(("WARN", "numbered process", "Process has no numbered steps"))
 
     inputs = secs.get("Inputs", "")
-    if inputs and not re.search(r"`[\w./-]+\.(md|csv|json|py)`|`\$\w+/", inputs):
+    if inputs and not re.search(rf"`[\w$./-]+\.(?:{EXT})`|`\$\w+/", inputs):
         out.append(("WARN", "exact input paths", "Inputs names no concrete path"))
 
     if re.search(r"`[\w./-]+\.(md|py|csv)`\s*[,;]?\s*(?:lines?\s*)?:\d", text) or \
@@ -282,14 +306,20 @@ def main() -> int:
     if "--load" in sys.argv[1:]:
         args = [a for a in sys.argv[1:] if a != "--load"]
         root = Path.cwd()
+        if not args:
+            print("usage: evaluate-stage.py --load <stage-dir|CONTEXT.md> [...]   "
+                  "(run from the workspace root; Inputs resolve against your cwd)")
+            return 1
         for a in args:
             stage = Path(a)
+            if stage.name == "CONTEXT.md" and stage.is_file():
+                stage = stage.parent              # accept a contract path, as section mode does
             if not (stage / "CONTEXT.md").exists():
                 print(f"FAIL  {a}: no CONTEXT.md")
                 worst = 1
                 continue
             total, rows = step_load(stage, root)
-            print(f"\n{stage.name} — whole-step load")
+            print(f"\n{stage.name} — whole-step load   (root: {root})")
             for what, n, why in rows:
                 print(f"  {what:<62}{n:>6}  {why}")
             band = "INSIDE 2k-8k" if 2000 <= total <= 8000 else "OUTSIDE 2k-8k"
@@ -315,12 +345,12 @@ def main() -> int:
         default = Path("stages")
         if not default.is_dir():
             print("no argument given and ./stages does not exist here.\n"
-                  "usage: evaluate-stage.py <stage-dir|CONTEXT.md> [...]   "
+                  "usage: evaluate-stage.py [--load] <stage-dir|CONTEXT.md> [...]   "
                   "(the bare form looks for ./stages, relative to your cwd)")
             return 1
         stages = sorted(d for d in default.iterdir() if d.is_dir())
     if not stages and not worst:
-        print("usage: evaluate-stage.py <stage-dir|CONTEXT.md> [...]")
+        print("usage: evaluate-stage.py [--load] <stage-dir|CONTEXT.md> [...]")
         return 1
     for stage in stages:
         try:

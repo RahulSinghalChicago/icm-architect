@@ -78,10 +78,15 @@ NOT_CLI: tuple[str, ...] = ()
 
 # ---------------------------------------------------------------------- patterns
 
-# Only citations that look like paths. A bare `record.md` is usually a per-run
-# artifact rather than a repo file; treating those as paths buried 261 false
-# positives in the first run of the original.
-PATH_RE = re.compile(r"`([A-Za-z_][\w./-]*/[\w./-]*\.(?:md|csv|py|json|ya?ml|txt))(?::[\d,\-]+)?`")
+# Only citations that look like paths -- they contain a slash. A bare `record.md` is
+# usually a per-run artifact rather than a repo file; treating those as paths buried
+# 261 false positives in the first run of the original. A `./` or `../` prefix is a
+# path too: it is the form the stage template gives every Working input, and the
+# original's letter-first rule made every such citation invisible to the dead-path
+# check, so a stage whose only dead inputs were `../` paths printed "all clear".
+# `$VAR/` and `~/` are still not matched: nothing here can resolve them.
+PATH_RE = re.compile(
+    r"`((?:(?:\.{1,2}/)+[\w][\w./-]*|[\w][\w./-]*/[\w./-]*)\.(?:md|csv|py|json|ya?ml|txt))(?::[\d,\-]+)?`")
 LINECITE_RE = re.compile(r"`([\w./-]+\.(?:md|py|csv|json|ya?ml|txt)):(\d[\d,\-]*)`")
 SECTION_RE = re.compile(r"`([\w./-]+\.md)`[^.\n]{0,40}?[\"“]([^\"”\n]{3,60})[\"”]")
 SYMBOL_RE = re.compile(r"`([a-z_][a-z0-9_]{3,})\(\)`")
@@ -125,7 +130,13 @@ def code_text(root: Path) -> str:
 
 
 def resolve(cited: str, doc: Path, root: Path) -> Path | None:
-    for cand in (root / cited, doc.parent / cited):
+    # A `./` or `../` citation is relative to the citing file by definition; trying it
+    # from the root as well could land outside the workspace on a same-named file.
+    if cited.startswith(("./", "../")):
+        cands = (doc.parent / cited,)
+    else:
+        cands = (root / cited, doc.parent / cited)
+    for cand in cands:
         if cand.exists():
             return cand
     return None
@@ -252,6 +263,11 @@ def _self_test() -> int:
         "Names `--real-flag`.\n"
         "Names `--gone-flag`, which was removed last year.\n"
         "Cites `real.md:3`.\n")
+    # The stage template writes Working inputs as `../`; one dead, one live.
+    (tmp / "sub").mkdir()
+    (tmp / "sub" / "deep.md").write_text(
+        "Cites `../does-not-exist.md`.\n"
+        "Cites `../real.md`.\n")
 
     saved, CODE_DIRS = CODE_DIRS, ("code",)
     try:
@@ -266,7 +282,10 @@ def _self_test() -> int:
     # so `want - kinds` was empty and the self-test printed "all 5 caught" above the crash
     # it had just recorded. Assert on the crash directly.
     crashed = [(p_, m) for k, p_, m in fails if k == "check crashed"]
-    noise = [(k, str(p.name), m) for k, p, m in fails if p.name == "ok.md"]
+    if not any(k == "dead path" and "../does-not-exist.md" in m for k, _, m in fails):
+        missed.add("dead path (../ form)")
+    noise = [(k, str(p.name), m) for k, p, m in fails
+             if p.name == "ok.md" or (p.name == "deep.md" and "does-not-exist" not in m)]
 
     for kind, path, msg in sorted((k, p.name, m) for k, p, m in fails):
         print(f"  caught  {kind:16} {path}: {msg}")
