@@ -74,7 +74,18 @@ CODE_DIRS: tuple[str, ...] = ()
 
 # Files that describe pages or styling rather than scripts. CSS custom properties
 # are indistinguishable from CLI flags, so these are not asked about flags.
+# Matched against the file's NAME (basename), unlike DELIBERATE_DEAD and
+# LIVE_IN_SKIPPED, which are matched against the path from the root. Both forms are
+# checked below and an entry matching neither is reported, so a key in the wrong
+# shape can no longer be silently ignored.
 NOT_CLI: tuple[str, ...] = ()
+
+# Folders a run WRITES into. A contract names the file it produces -- `output/script.md`
+# in Outputs and again in the Human check -- and that file does not exist until the run
+# happens, so every fresh stamp and every cleared folder returned it as a dead path.
+# A cited path with one of these as a segment is not checked for existence; everything
+# else in the same file still is. Set this to whatever your workspace calls them.
+PRODUCT_DIRS = {"output"}
 
 # ---------------------------------------------------------------------- patterns
 
@@ -92,9 +103,15 @@ SECTION_RE = re.compile(r"`([\w./-]+\.md)`[^.\n]{0,40}?[\"“]([^\"”\n]{3,60})
 SYMBOL_RE = re.compile(r"`([a-z_][a-z0-9_]{3,})\(\)`")
 FLAG_RE = re.compile(r"`(--[a-z][a-z0-9-]{2,})`")
 BUILTINS = {"repr", "print", "open", "sorted", "list", "dict", "set", "str", "int", "len", "range"}
-# A flag described as removed is history, not a broken reference.
-HISTORY_WORDS = ("removed", "deprecat", "superseded", "no longer", "used to",
-                 "historical", "dead", "former")
+# A flag described as REMOVED is history, not a broken reference -- but the sentence has
+# to be about that flag. An earlier version searched a 220-character window for a bare
+# substring, so an ordinary "this flag is used to ..." silenced itself, a live flag beside
+# a removed one was silenced by its neighbour's sentence, and "deadline" matched "dead".
+# The word must now follow the flag within one sentence, and "used to" is gone: it is far
+# commoner as a description of what a flag DOES than of what it once was.
+HISTORY_WORDS = ("removed", "remove", "deprecated", "deprecate", "superseded",
+                 "no longer", "historical", "retired", "former", "gone")
+HISTORY_RE = re.compile(r"^[^.\n]{0,120}?\b(?:%s)\b" % "|".join(HISTORY_WORDS), re.I)
 
 # ------------------------------------------------------------------------ checks
 
@@ -129,6 +146,23 @@ def code_text(root: Path) -> str:
     return "\n".join(parts)
 
 
+def quarantined(path: Path, root: Path) -> bool:
+    """Inside a SKIP folder, so nothing here may be opened.
+
+    SKIP used to govern only which files were WALKED. A live doc citing a section or a
+    line inside a quarantined tree still made the checker read_text() that file, so the
+    one tree a data policy protects was opened by tooling on every run -- the property
+    the setup step promises, not delivered. Checked at the point of opening, not of
+    walking. A file named in LIVE_IN_SKIPPED is deliberate and stays readable.
+    """
+    try:
+        rel = path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return True                       # outside the workspace: never opened
+    return (str(rel) not in LIVE_IN_SKIPPED
+            and any(part in SKIP for part in rel.parts))
+
+
 def resolve(cited: str, doc: Path, root: Path) -> Path | None:
     # A `./` or `../` citation is relative to the citing file by definition; trying it
     # from the root as well could land outside the workspace on a same-named file.
@@ -142,9 +176,14 @@ def resolve(cited: str, doc: Path, root: Path) -> Path | None:
     return None
 
 
+def is_product(cited: str) -> bool:
+    """A path a run writes rather than one the workspace ships. Not existence-checked."""
+    return any(part in PRODUCT_DIRS for part in Path(cited).parts)
+
+
 def check_paths(root, fails, advisories):
     for doc in docs(root):
-        if str(doc.relative_to(root)) in DELIBERATE_DEAD:
+        if exempt(doc, root, DELIBERATE_DEAD):
             continue
         text = read(doc)
         if text is None:
@@ -152,7 +191,7 @@ def check_paths(root, fails, advisories):
             continue
         for m in PATH_RE.finditer(text):
             cited = m.group(1)
-            if "<" in cited or cited.endswith("/"):
+            if "<" in cited or cited.endswith("/") or is_product(cited):
                 continue
             if resolve(cited, doc, root) is None:
                 fails.append(("dead path", doc, f"cites {cited}, which does not exist"))
@@ -166,13 +205,30 @@ def check_sections(root, fails, advisories):
         for m in SECTION_RE.finditer(text):
             target, section = m.group(1), m.group(2).strip()
             t = resolve(target, doc, root)
-            if t is None or t.suffix != ".md":
+            if t is None or t.suffix != ".md" or quarantined(t, root):
                 continue
             # A cited name may be a heading, a table row, or a bolded phrase.
             # Anywhere in the file counts; absent entirely does not.
-            if section.lower() not in t.read_text(encoding="utf-8").lower():
+            body = read(t)
+            if body is None:
+                fails.append(("unreadable", doc,
+                              f"cites {target}, which could not be read as UTF-8; "
+                              "its sections were NOT checked"))
+                continue
+            if section.lower() not in body.lower():
                 fails.append(("dead section", doc,
                               f'cites {target} "{section}" -- that phrase is not in the file'))
+
+
+def exempt(doc: Path, root: Path, names: set[str]) -> bool:
+    """Is this file listed, by path from the root OR by bare name?
+
+    The three per-file constants used to compare different things -- NOT_CLI a basename,
+    the other two a relative path -- with no comment saying which, while the prose said
+    only "exempt them by name". An entry in the wrong shape matched nothing and said
+    nothing. Both forms are accepted, and check_config reports an entry matching neither.
+    """
+    return doc.name in names or str(doc.relative_to(root)) in names
 
 
 def check_line_citations(root, fails, advisories):
@@ -181,19 +237,29 @@ def check_line_citations(root, fails, advisories):
     technique and this script does not get to overrule it."""
     seen = 0
     for doc in docs(root):
-        if str(doc.relative_to(root)) in DELIBERATE_DEAD:
+        if exempt(doc, root, DELIBERATE_DEAD):
             continue
         text = read(doc)
         if text is None:
             continue
         for m in LINECITE_RE.finditer(text):
+            if is_product(m.group(1)):
+                continue
             target = resolve(m.group(1), doc, root)
             if target is None:
                 fails.append(("line citation", doc,
                               f"cites {m.group(1)}:{m.group(2)}, and that file does not exist"))
                 continue
+            if quarantined(target, root):
+                continue
+            body = read(target)
+            if body is None:
+                fails.append(("unreadable", doc,
+                              f"cites {m.group(1)}:{m.group(2)}, and that file could not be "
+                              "read as UTF-8; its line count was NOT checked"))
+                continue
             tail = [n for n in re.split(r"[,\-]", m.group(2)) if n.strip().isdigit()]
-            if tail and int(tail[-1]) > len(target.read_text(encoding="utf-8").splitlines()):
+            if tail and int(tail[-1]) > len(body.splitlines()):
                 fails.append(("line citation", doc,
                               f"cites {m.group(1)}:{m.group(2)}, past the end of that file"))
                 continue
@@ -220,19 +286,40 @@ def check_symbols(root, fails, advisories):
             # Whole-name match: a substring test passes restores() for restore().
             if not re.search(rf"\b{re.escape(sym)}\s*\(", code):
                 fails.append(("unknown symbol", doc, f"names {sym}() -- not in any script"))
-        if doc.name in NOT_CLI:
+        if doc.name in NOT_CLI or str(doc.relative_to(root)) in NOT_CLI:
             continue
         for m in FLAG_RE.finditer(text):
             flag = m.group(1)
             if re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", code):
                 continue
-            window = text[max(0, m.start() - 220):m.end() + 220].lower()
-            if any(w in window for w in HISTORY_WORDS):
+            if HISTORY_RE.match(text[m.end():]):
                 continue
             fails.append(("unknown flag", doc, f"names {flag} -- no script defines it"))
 
 
-CHECKS = (check_paths, check_sections, check_symbols, check_line_citations)
+def check_config(root, fails, advisories):
+    """Every configured exemption must match a file that exists.
+
+    A constant tuned once and then outlived by the file it names is an exemption nobody
+    can see is dead, and a mistyped one silently exempts nothing at all.
+    """
+    have = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+    have |= {p.name for p in root.rglob("*") if p.is_file()}
+    for const, entries in (("DELIBERATE_DEAD", DELIBERATE_DEAD),
+                           ("LIVE_IN_SKIPPED", LIVE_IN_SKIPPED),
+                           ("NOT_CLI", set(NOT_CLI))):
+        for e in sorted(entries):
+            if e not in have:
+                fails.append(("stale config", root,
+                              f"{const} names {e!r}, which is not a file in this workspace"))
+    for d in sorted(CODE_DIRS):
+        if not (root / d).is_dir():
+            fails.append(("stale config", root,
+                          f"CODE_DIRS names {d!r}, which is not a folder here -- "
+                          "symbol and flag citations are being checked against nothing"))
+
+
+CHECKS = (check_paths, check_sections, check_symbols, check_line_citations, check_config)
 
 # -------------------------------------------------------------------- self-test
 
@@ -244,7 +331,7 @@ def _self_test() -> int:
     if a check crashes, because a crash is recorded as a failure rather than a
     skip -- one crashing check must never be able to hide the others.
     """
-    global CODE_DIRS
+    global CODE_DIRS, PRODUCT_DIRS, SKIP, DELIBERATE_DEAD, LIVE_IN_SKIPPED, NOT_CLI
     tmp = Path(tempfile.mkdtemp())
     (tmp / "code").mkdir()
     (tmp / "code" / "tool.py").write_text(
@@ -263,20 +350,71 @@ def _self_test() -> int:
         "Names `--real-flag`.\n"
         "Names `--gone-flag`, which was removed last year.\n"
         "Cites `real.md:3`.\n")
+    # The history exemption must be about THIS flag: a live flag whose sentence merely
+    # says what it is used to do, or sits near a removed one, is not history.
+    (tmp / "bad.md").write_text((tmp / "bad.md").read_text() +
+        "The `--live-flag` is used to pick a mode.\n"
+        "`--gone-flag` was removed; `--other-live` replaced it.\n"
+        "Before the deadline, pass `--third-live`.\n")
     # The stage template writes Working inputs as `../`; one dead, one live.
     (tmp / "sub").mkdir()
     (tmp / "sub" / "deep.md").write_text(
         "Cites `../does-not-exist.md`.\n"
         "Cites `../real.md`.\n")
+    # A run's own products do not exist before the run. Neither line may be reported.
+    (tmp / "product.md").write_text(
+        "Writes `output/script.md`.\n"
+        "Reads `../01_research/output/research.md`.\n"
+        "Cites `output/script.md:40`.\n")
+    # A quarantined tree must not be OPENED, even when a live doc cites into it.
+    (tmp / "quarantine").mkdir()
+    (tmp / "quarantine" / "rows.md").write_text("# Rows\n\n## Retention\n\nx\n")
+    (tmp / "cites-quarantine.md").write_text(
+        'Cites `quarantine/rows.md` "A Section Not In It".\n'
+        "Cites `quarantine/rows.md:9000`.\n")
+    # A cited target that is not UTF-8 must not void the rest of the section check.
+    (tmp / "legacy.md").write_bytes(b"# Legacy\n\n\xe9\n")
+    (tmp / "cites-legacy.md").write_text('Cites `legacy.md` "A Section Not In It".\n')
+    # Exemptions: one listed by bare name, one by path from the root; both must hold.
+    (tmp / "signpost.md").write_text("Old `gone/a.md` is now `real.md`.\n")
+    (tmp / "styles").mkdir()
+    (tmp / "styles" / "theme.md").write_text("Sets `--brand-color` and `--pad-lg`.\n")
 
-    saved, CODE_DIRS = CODE_DIRS, ("code",)
+    saved = (CODE_DIRS, PRODUCT_DIRS, SKIP, DELIBERATE_DEAD, LIVE_IN_SKIPPED, NOT_CLI)
+    CODE_DIRS = ("code",)
+    opened: list[str] = []
+    _real_read_text = Path.read_text
+
+    def _watch(self, *a, **k):               # every open the run performs, recorded
+        opened.append(str(self))
+        return _real_read_text(self, *a, **k)
+    Path.read_text = _watch
+    PRODUCT_DIRS = {"output"}
+    SKIP = SKIP | {"quarantine"}
+    DELIBERATE_DEAD = {"signpost.md"}          # by bare name
+    # An exemption naming a file that is gone: the check must say so rather than let a
+    # dead entry sit in the config looking like it protects something.
+    LIVE_IN_SKIPPED = {"runs/kept.md"}
+    NOT_CLI = ("styles/theme.md",)             # by path from the root
     try:
         fails, advisories = run(tmp)
     finally:
-        CODE_DIRS = saved
+        Path.read_text = _real_read_text
+        (CODE_DIRS, PRODUCT_DIRS, SKIP, DELIBERATE_DEAD,
+         LIVE_IN_SKIPPED, NOT_CLI) = saved
+    # Inside the folder, not merely named after it: cites-quarantine.md is a live doc
+    # and must be read. An earlier version of this assertion matched its name and failed
+    # on the correct behaviour.
+    inside = [o for o in opened if f"{tmp}/quarantine/" in o]
+    if inside:
+        print(f"\nSELF-TEST FAILED: the checker OPENED a file inside a SKIP folder: {inside}")
+        return 1
 
     kinds = {kind for kind, _, _ in fails}
     want = {"dead path", "dead section", "unknown symbol", "unknown flag", "line citation"}
+    for flag in ("--live-flag", "--other-live", "--third-live"):
+        if not any(k == "unknown flag" and flag in m for k, _, m in fails):
+            missed.add(f"unknown flag ({flag}: history window too wide)")
     missed = want - kinds
     # A crash AFTER a check reported its planted defect still leaves that kind in `kinds`,
     # so `want - kinds` was empty and the self-test printed "all 5 caught" above the crash
@@ -284,8 +422,17 @@ def _self_test() -> int:
     crashed = [(p_, m) for k, p_, m in fails if k == "check crashed"]
     if not any(k == "dead path" and "../does-not-exist.md" in m for k, _, m in fails):
         missed.add("dead path (../ form)")
+    # A file that could not be read must be REPORTED, not swallowed, and the sections of
+    # every other file must still have been checked -- the failure this isolation exists
+    # to prevent voided every finding after the first unreadable target.
+    if not any(k == "unreadable" and "legacy.md" in m for k, _, m in fails):
+        missed.add("unreadable cited target")
+    if not any(k == "stale config" and "runs/kept.md" in m for k, _, m in fails):
+        missed.add("stale config")            # an exemption naming a file that is gone
+    clean = ("ok.md", "product.md", "cites-quarantine.md", "signpost.md", "theme.md")
     noise = [(k, str(p.name), m) for k, p, m in fails
-             if p.name == "ok.md" or (p.name == "deep.md" and "does-not-exist" not in m)]
+             if (p.name in clean and k != "stale config")
+             or (p.name == "deep.md" and "does-not-exist" not in m)]
 
     for kind, path, msg in sorted((k, p.name, m) for k, p, m in fails):
         print(f"  caught  {kind:16} {path}: {msg}")

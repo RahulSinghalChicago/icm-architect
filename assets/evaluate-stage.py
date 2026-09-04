@@ -34,8 +34,13 @@ PROCESS_PER_STEP = 60       # one instruction and its guardrail
 # NOT evaluated -- but it must say so explicitly. An earlier version keyed on the bare
 # word "split" appearing in the first 200 characters, which silently passed any live
 # stage that splits a cohort, a batch or a file, and printed the result as "ok".
-RETIRED_RE = re.compile(r"^\s*(?:>\s*)?(?:\*{0,2})RETIRED\b|^status:\s*retired\s*$",
-                        re.M | re.I)
+# The marker the template prescribes: `RETIRED <date> -- see <where it went>`, capitals
+# and an ISO date, so ordinary prose cannot be one. Case-insensitive and date-free, an
+# earlier version skipped any live contract carrying a line that began "Retired accounts
+# are excluded ..." -- printed as a skip, exit 0, never evaluated. A leading `>` or `**`
+# is allowed because the template shows the marker inside a comment or bold.
+RETIRED_RE = re.compile(r"^\s*(?:>\s*)?(?:\*{0,2})RETIRED\s+\d{4}-\d{2}-\d{2}\b"
+                        r"|^status:\s*retired\s*$", re.M)
 # A criterion that fails at 205 against 200 gets gamed or ignored. Over budget is
 # reported; MATERIALLY over is a failure. The band is a reporting threshold, not extra
 # budget -- a section in it is still over, and should not be allowed to creep upward.
@@ -110,13 +115,28 @@ LOOKS_SCOPED = re.compile(rf"`[\w$./-]+\.(?:{EXT})`\s*\(([^)\n]{{3,120}})\)")
 
 
 def named_section(path: Path, name: str) -> str:
-    out, on = [], False
-    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        if re.match(r"^#{2,4}\s", line):
-            on = name.lower() in line.lower()
-            continue
-        if on:
-            out.append(line)
+    """The body under the heading that matches `name`, its own sub-sections included.
+
+    Two earlier defects, both hiding load. The toggle fired at every ##-#### line, so a
+    section's own children were dropped -- and a heading whose body is entirely children
+    returned empty, was filtered out of `names`, and charged the WHOLE file under a label
+    reading "(whole file)". And the match was a bare substring, so citing "Match" also
+    charged "Match exceptions". A section now ends at the next heading of its own level
+    or higher, and an exact heading text wins over a substring when both are present.
+    """
+    lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    heads = [(i, len(m.group(1)), line[m.end():].strip())
+             for i, line in enumerate(lines)
+             if (m := re.match(r"^(#{2,4})\s+", line))]
+    want = name.strip().lower()
+    hit = ([h for h in heads if h[2].lower() == want]
+           or [h for h in heads if want in h[2].lower()])
+    if not hit:
+        return ""
+    out = []
+    for start, level, _ in hit:
+        end = next((i for i, lv, _ in heads if i > start and lv <= level), len(lines))
+        out.extend(lines[start + 1:end])
     return "\n".join(out)
 
 
@@ -124,10 +144,22 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
     """(total, [(what, tokens, why)]). Zero-cost entries are reported, not hidden --
     a demotion should be visible as a line costing nothing, not as a line that vanished."""
     rows: list[tuple[str, int, str]] = []
+    seen_entry: dict[str, str] = {}          # text -> the file already charged for it
     for name in ("CLAUDE.md", "AGENTS.md", "CONTEXT.md"):
         f = root / name
-        if f.exists() and not f.is_symlink():
-            rows.append((f"L0/L1 {name}", tokens(f.read_text(encoding="utf-8", errors="ignore")), "loads on every step"))
+        if not f.exists() or f.is_symlink():
+            continue
+        body = f.read_text(encoding="utf-8", errors="ignore")
+        # AGENTS.md is generated as a byte-identical twin of CLAUDE.md (system-map.md,
+        # "Generate AGENTS.md and routing.md as byte-identical twins"), and one agent
+        # reads one of them. Charging both put up to 800 phantom tokens on the band.
+        # A twin that has DRIFTED is not identical, so it is still charged.
+        if body in seen_entry:
+            rows.append((f"L0/L1 {name}  <- twin of {seen_entry[body]}, counted once", 0,
+                         "loads on every step"))
+            continue
+        seen_entry[body] = name
+        rows.append((f"L0/L1 {name}", tokens(body), "loads on every step"))
     contract = stage / "CONTEXT.md"
     text = contract.read_text(encoding="utf-8", errors="ignore")
     rows.append(("L2 the contract", tokens(text), ""))
@@ -171,7 +203,10 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
         cites = list(CITE.finditer(entry))
         for i, m in enumerate(cites):
             rel = m.group(1)
-            f = next((c for c in (root / rel, stage / rel, contract.parent / rel) if c.exists()), None)
+            # The stage's own folder first. A bare `references/guide.md` in a contract is
+            # that stage's shelf (stage-CONTEXT.md:14); trying the root first charged a
+            # same-named root file's size instead, silently and in either direction.
+            f = next((c for c in (stage / rel, contract.parent / rel, root / rel) if c.exists()), None)
             if f is None:
                 # Not found from the root, the stage, or beside the contract. On a fresh
                 # build that is the upstream output not yet produced; otherwise a typo or
@@ -294,8 +329,9 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
         out.append(("WARN", "no line citations", (
             "cites a file by line number; those drift the next time it is edited. Cite a "
             "section name or a code symbol. A CONTRACT is held to a stricter standard than the "
-            "rest of the workspace here — check-references.py reports line citations only as an "
-            "advisory, because narrowing a large file by range is a real technique. A contract is "
+            "rest of the workspace here — check-references.py fails a citation past the end of "
+            "its file and advises on the rest, because narrowing a large file by range is a real "
+            "technique. A contract is "
             "the control surface and is re-read every run, so a drifted range in one misdirects "
             "every run until someone notices.")))
     return out
@@ -318,14 +354,33 @@ def main() -> int:
                 print(f"FAIL  {a}: no CONTEXT.md")
                 worst = 1
                 continue
-            total, rows = step_load(stage, root)
+            try:
+                contract_text = (stage / "CONTEXT.md").read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                contract_text = ""
+            if RETIRED_RE.search(contract_text):
+                # Section mode skips a signpost; so does this, or `--load stages/*/`
+                # fails on every pipeline that has ever retired a folder.
+                print(f"\nskip  {stage.name} — retired signpost, NOT measured")
+                continue
+            try:
+                total, rows = step_load(stage, root)
+            except Exception as exc:   # one bad folder must not void the rest of the run
+                print(f"\nFAIL  {stage.name}: load measurement crashed: {exc!r}")
+                worst = 1
+                continue
             print(f"\n{stage.name} — whole-step load   (root: {root})")
             for what, n, why in rows:
                 print(f"  {what:<62}{n:>6}  {why}")
-            band = "INSIDE 2k-8k" if 2000 <= total <= 8000 else "OUTSIDE 2k-8k"
+            # The band's floor REPORTS and its ceiling FAILS. A correct small stage --
+            # every stage of the smallest three-stage pipeline measures 650-1,000 --
+            # used to exit 1 with no remedy anywhere in the method, so the only action
+            # left was to load more. Under is worth saying; it is not worth failing.
+            band = ("UNDER 2k (reported, not a failure)" if total < 2000
+                    else "INSIDE 2k-8k" if total <= 8000 else "OVER 8k")
             print(f"  {'':-<62}{'':->6}")
             print(f"  {'TOTAL':<62}{total:>6}  {band}")
-            if not 2000 <= total <= 8000:
+            if total > 8000:
                 worst = 1
         return worst
     if sys.argv[1:]:
