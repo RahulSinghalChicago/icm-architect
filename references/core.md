@@ -2,7 +2,7 @@
 
 The canon, distilled from the ICM paper (arXiv:2603.16021) and production workspaces. Read this when writing contracts, arguing a structural call, or checking a workspace against the method.
 
-Contents: Five principles · Five-layer hierarchy · Stage contract format · Naming conventions · Library rules · Where ICM loses. Sizes live in [budgets.md](budgets.md).
+Contents: Five principles · Five-layer hierarchy · Stage contract format · Naming conventions · Library rules · Where ICM loses. Sizes, and where a product lands, live in [budgets.md](budgets.md).
 
 ## The five design principles
 
@@ -59,6 +59,8 @@ One job: write the script from the research output.
 Read the draft aloud — the argument order should survive from research. Edit in place; the next stage reads whatever is here.
 ```
 
+The Process is numbered and short — constraints live in L3 files, not restated here; there is exactly one Human check.
+
 ### Writing the Human check
 
 Three things, in this order, and nothing else:
@@ -79,9 +81,9 @@ Everything else belongs somewhere other than this section:
 
 The test: a person who has never read this workspace should be able to perform the act from these words alone, and know what would make them refuse to sign. If a sentence does not move them toward doing or refusing, it is not a Human check sentence.
 
-**Say when the act happens, if it is not at the end.** The section sits last in the file; that is layout, not sequence. When the judgement has to precede an irreversible Process step, name the step — "*Before step 4*, a person opens … with their own eyes". When it can only be made after one, because a check on what is now live cannot precede publication, the position is already right and needs no note. An unqualified check reads as "after the Process", so a mid-Process act that says nothing about timing gets performed too late — and that failure survives every budget and reference check, because every sentence in the section is true. Moving the act is the fix; splitting the folder so the irreversible step gets its own gate is not, because the new stage's gate still cannot precede its own publication. This is ordering *within* a folder — invariant 6 governs the handoff *between* folders and does not reach it.
+**Say when the act happens, if it is not at the end.** The section sits last in the file; that is layout, not sequence. When the judgement has to precede an irreversible Process step, name the step — "*Before step 4*, a person opens … with their own eyes". When it can only be made after one, because a check on what is now live cannot precede publication, the position is already right and needs no note. An unqualified check reads as "after the Process", so a mid-Process act that says nothing about timing gets performed too late — and that failure survives every budget and reference check, because every sentence in the section is true. Moving the act is the fix, not a split: a mistimed act is still one act, and [budgets.md](budgets.md) is where the split test lives. This is ordering *within* a folder — invariant 6 governs the handoff *between* folders and does not reach it.
 
-Before — 139 tokens, and only the middle third is the check:
+Before — 128 tokens (`assets/evaluate-stage.py`'s estimator), and only the middle third is the check:
 
 ```markdown
 One judgement, and it is the only one here no machine can make: **are these four export
@@ -95,7 +97,7 @@ you pulled by hand, then compare all four against the previous cycle's ledger. S
 Everything else this stage checks is a value, not a judgement, and is stopped at step 4.
 ```
 
-After — 52 tokens, all three parts, nothing else:
+After — 61 tokens, all three parts, nothing else:
 
 ```markdown
 Compare the four export counts against the previous cycle's `gate-ledger.csv`, `G01`
@@ -117,7 +119,9 @@ A runbook shelf is one file per stage, not one per command: an operator mid-run 
 
 That holds even when the shelf goes over its L3 budget, and it is the one exception to the L3 shelf remedies in [budgets.md](budgets.md) — the runbook is read start to finish while the stage runs, so splitting it costs the operator a page-turn mid-command and saves nothing, because both halves load anyway. When a runbook is too big, the fix is upstream of the split: lift shared commands to the shared layer, or find the material in it that a run does not execute — background, alternate routes, the UI path nobody takes any more — and move *that* out to a conditional shelf. If what is left is genuinely all executed every run, the stage is doing two jobs and wants splitting, not the file.
 
-Rules: inputs are exact paths in backticks, under one of **four** scopes:
+### Writing the Inputs list
+
+Inputs are exact paths in backticks, under one of **four** scopes:
 
 | Scope | Meaning | Counts toward the step's load |
 |---|---|---|
@@ -126,19 +130,17 @@ Rules: inputs are exact paths in backticks, under one of **four** scopes:
 | Reference (only if …) | named so a person can reach it; not opened on a normal run | **zero** |
 | Pass to scripts (never load) | the step hands the path to a command; no agent opens it | **zero** |
 
-The fourth is not a `Do NOT load` — the step needs the path — and not a reference, because nothing in it is read. Give it its own block and say why it is never opened (its size, or that it holds personal data), because [budgets.md](budgets.md) counts it as zero only when the contract has said so.
+The fourth is a scope, not a prohibition: the step needs the path, and nothing in it is read. Give it its own block and say why it is never opened (its size, or that it holds personal data), because [budgets.md](budgets.md) counts it as zero only when the contract has said so. The prohibition is a separate closing `Do NOT load:` line — what an eager agent would wrongly pull in, named without paths, and not a fifth scope.
 
 **Cite a section in quotes, right after the path.** `` `_shared/constants.md`, "Resend Eligibility" `` — and one entry per section when a step needs several. This is a format rule and it looks like fussiness until you measure: a citation written `` `constants.md` (Resend Eligibility; Purchase Matching) `` is perfectly clear to a person and, to anything counting, indistinguishable from citing the whole file. Two stages in the workspace this was written from were each charged 4,766 tokens for a file they needed three sections of, and neither contract was wrong — only unquoted. If a scope cannot be read mechanically it is a comment, not a scope.
 
 **In a grouped list the indentation carries the scope.** A conditional reference nested under the every-run group is an every-run load, whatever its own words say. Scope changes need a new top-level entry. A path may be rooted at a shell variable (`$RUN/file.csv`) if the contract or its runbook binds that variable; an unbound variable is not an exact path.
 
-Demoting an input from every-run to conditional is the single biggest lever on a step's load. The process is numbered and short — constraints live in L3 files, not restated here. Exactly one human check, stated as something a person does, not a vague "review."
-
 ## Naming conventions
 
 - Stage folders: `NN_kebab-name` (`01_research`). Ordinal-only prefixes (`00-tracker.md`) for ordered files inside a folder.
 - Meta/system folders get an underscore prefix and sort to the top: `_meta/`, `_system/`, `_shared/`, `_config/`, `_templates/`, `_index/`, `_archive/`. Underscore = "about the workspace, not of the work."
-- Records and nodes: kebab-case slugs for machine-facing files, or human-readable Title Case where a person browses daily (an Obsidian vault). Pick one per workspace and write the choice into the schema — drift between schema and files is the most common decay.
+- Records and nodes: kebab-case slugs for machine-facing files, or human-readable Title Case where a person browses daily (an Obsidian vault). Hyphenate a Title Case filename (`Team-Name.md`): no path regex in either script matches a space, so a citation written *Team Name.md* is charged nothing and never reported dead. Pick one per workspace and write the choice into the schema — drift between schema and files is the most common decay.
 - Typed content files may prefix their type: `data-customer-list.md`.
 - Entry file: `CLAUDE.md` for Claude Code, `AGENTS.md` for other agents. If both exist, one is generated from the other or is a one-line pointer — never two hand-maintained copies.
 - Templates are blank, named for what they produce, and live together: `_templates/pilot-brief.md`.

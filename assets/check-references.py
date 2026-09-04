@@ -27,7 +27,7 @@ WHAT THIS CANNOT DO -- read this before quoting a passing run at anyone.
   finding in that run -- and had reported clean since the day it was written,
   because no input had ever reached the branch that crashed.
 
-SETUP. Copy into the workspace, set the five constants below, run from anywhere:
+SETUP. Copy into the workspace, set the constants below, run from anywhere:
 
     python3 check-references.py [--root PATH] [--self-test]
 
@@ -100,6 +100,12 @@ PATH_RE = re.compile(
     r"`((?:(?:\.{1,2}/)+[\w][\w./-]*|[\w][\w./-]*/[\w./-]*)\.(?:md|csv|py|json|ya?ml|txt))(?::[\d,\-]+)?`")
 LINECITE_RE = re.compile(r"`([\w./-]+\.(?:md|py|csv|json|ya?ml|txt)):(\d[\d,\-]*)`")
 SECTION_RE = re.compile(r"`([\w./-]+\.md)`[^.\n]{0,40}?[\"“]([^\"”\n]{3,60})[\"”]")
+# A path with a SPACE in it. No regex above can match one -- widening them would swallow
+# ordinary prose in backticks -- so such a citation is checked by nothing and reported by
+# nothing, and --load charges it zero. The method permits Title Case filenames (core.md,
+# "Naming conventions"), so this is reachable by anyone following the schema template.
+# Flag the citation itself and say why, rather than pretending to resolve it.
+SPACED_PATH_RE = re.compile(r"`([\w][\w./-]*(?: [\w][\w./-]*)+\.(?:md|csv|py|json|ya?ml|txt))`")
 SYMBOL_RE = re.compile(r"`([a-z_][a-z0-9_]{3,})\(\)`")
 FLAG_RE = re.compile(r"`(--[a-z][a-z0-9-]{2,})`")
 BUILTINS = {"repr", "print", "open", "sorted", "list", "dict", "set", "str", "int", "len", "range"}
@@ -189,6 +195,13 @@ def check_paths(root, fails, advisories):
         if text is None:
             fails.append(("unreadable", doc, "could not be read as UTF-8; not checked"))
             continue
+        for m in SPACED_PATH_RE.finditer(text):
+            if "<" in m.group(1) or "{" in m.group(1):
+                continue
+            fails.append(("uncheckable path", doc,
+                          f"cites {m.group(1)!r} -- no path regex matches a space, so this "
+                          "citation is never checked and --load charges it nothing. "
+                          "Hyphenate the filename."))
         for m in PATH_RE.finditer(text):
             cited = m.group(1)
             if "<" in cited or cited.endswith("/") or is_product(cited):
@@ -361,6 +374,8 @@ def _self_test() -> int:
     (tmp / "sub" / "deep.md").write_text(
         "Cites `../does-not-exist.md`.\n"
         "Cites `../real.md`.\n")
+    # A path no regex can see. Reported as uncheckable, never as clean.
+    (tmp / "spaced.md").write_text("Cites `teams/acme/Team Name.md`.\n")
     # A run's own products do not exist before the run. Neither line may be reported.
     (tmp / "product.md").write_text(
         "Writes `output/script.md`.\n"
@@ -429,6 +444,8 @@ def _self_test() -> int:
         missed.add("unreadable cited target")
     if not any(k == "stale config" and "runs/kept.md" in m for k, _, m in fails):
         missed.add("stale config")            # an exemption naming a file that is gone
+    if not any(k == "uncheckable path" and "Team Name.md" in m for k, _, m in fails):
+        missed.add("uncheckable path (space in filename)")
     clean = ("ok.md", "product.md", "cites-quarantine.md", "signpost.md", "theme.md")
     noise = [(k, str(p.name), m) for k, p, m in fails
              if (p.name in clean and k != "stale config")

@@ -16,7 +16,7 @@ Method: Interpretable Context Methodology (Van Clief & McDermott, arXiv:2603.160
 Every ICM, whatever its form, obeys these. When building or restructuring, enforce all ten:
 
 1. **One folder, one job.** Each folder does a single step or holds a single kind of thing, and states its own purpose in a file inside itself. The structure is the documentation.
-2. **A small, stable entry file.** `CLAUDE.md` (or `AGENTS.md`) at the root answers "where am I, where does everything live, where do I go for task X" — and nothing else. Target under ~60 lines. It routes; it never holds content.
+2. **A small, stable entry file.** `CLAUDE.md` (or `AGENTS.md`) at the root answers "where am I, where does everything live, where do I go for task X" — and nothing else, and no larger than the L0 budget in [references/budgets.md](references/budgets.md). It routes; it never holds content.
 3. **Numbering encodes order.** `01_`, `02_`, … where sequence matters. Renaming folders reorders the pipeline — that is the point.
 4. **Every folder-level contract is explicit.** A `CONTEXT.md` per working folder: what it reads (inputs), what it does (process), what it writes (outputs), what a human checks. See [assets/templates/stage-CONTEXT.md](assets/templates/stage-CONTEXT.md).
 5. **Factory vs. product.** Reference material (rules, voice, schemas, templates — stable across runs) lives structurally apart from working artifacts (outputs, drafts — new every run). Configure the factory once; the product is what each run emits.
@@ -62,7 +62,7 @@ Real workspaces mix forms (a record library whose records are mini knowledge bun
 
 **3. Scaffold the smallest structure that carries the work.** Copy starters from [assets/templates/](assets/templates/) and fill them in. Do not create folders for stages that don't exist yet, empty "misc" buckets, or speculative depth. Three real stages beat seven imagined ones. If the whole job fits in one saved prompt, say so and don't build a workspace at all.
 
-**4. Write the contracts.** Root `CLAUDE.md` (identity + routing table), root `CONTEXT.md` (the pipeline or schema definition), one `CONTEXT.md` per stage/hub folder, `setup/questionnaire.md` if the factory needs configuring per user. Write inputs as explicit file paths, split into working (this run) and reference (every run).
+**4. Write the contracts.** Root `CLAUDE.md` (identity + routing table), root `CONTEXT.md` (the pipeline or schema definition), one `CONTEXT.md` per stage/hub folder, `setup/questionnaire.md` if the factory needs configuring per user. Write inputs as explicit file paths, each carrying a scope from [references/core.md](references/core.md).
 
 **5. Validate with the walk test** (below).
 
@@ -70,7 +70,7 @@ Real workspaces mix forms (a record library whose records are mini knowledge bun
 
 **1. Inventory before touching.** List the tree. For each area note: what it is, when last touched, what refers to it. Never delete or move in this pass.
 
-**2. Find the hidden form.** Ask the owner (or infer and confirm): what is the repeating unit here? Where does work enter and leave? The mess usually contains a real pipeline, library, or map that grew without a skeleton — extract it, don't replace it. Interview the folder the way you'd interview the person.
+**2. Find the [hidden form](references/forms.md).** Ask the owner (or infer and confirm): what is the repeating unit here? Where does work enter and leave? The mess usually contains a real pipeline, library, or map that grew without a skeleton — extract it, don't replace it. Interview the folder the way you'd interview the person.
 
 **3. Classify every file** into one of five roles:
 - **Catalog** — identity/routing (becomes or feeds `CLAUDE.md` / index files)
@@ -97,7 +97,7 @@ The workspace already exists and is in use; something is being fixed, added, or 
 
 **4. Every claim gets a source, or it goes.** Any sentence asserting how something behaves — a flag, a mechanism, a threshold, a URL, a count — names where that is true: a symbol in the code, the file that owns values, a dated decision. An unsourceable claim is deleted, not hedged. Invented mechanism does more damage than duplication: a plausible false explanation teaches the reader to disbelieve the true one.
 
-**5. Machine-check the mechanical half, and know its ceiling.** Dead citations, section names not in the file they name, symbols and flags no code has, line citations past the end of a file: [assets/check-references.py](assets/check-references.py) does that pass. It cannot tell you whether a true-looking sentence is true, and a check that has never failed has not been shown to work — so "checks pass" means the citations resolve, and is never reported as more. `check-references.py` ships a `--self-test`; run it after changing that script, so its checks have been seen to fail before you trust them to pass.
+**5. Machine-check the mechanical half, and know its ceiling.** [assets/check-references.py](assets/check-references.py) catches the defects that need no judgement. It cannot tell you whether a true-looking sentence is true — so "checks pass" means the citations resolve, and is never reported as more. What it catches, how to set it up, when to run its `--self-test`, and what to know before trusting it are in [references/maintain.md](references/maintain.md).
 
 ## The walk test
 
@@ -109,7 +109,7 @@ Validate any ICM — new, restructured, or changed — by walking it cold, as an
 - Walk the Process and the Human check. Does every file, section and command they send you to appear in Inputs, at the scope it is actually used? A file a step reads but never declares makes the whole-step load read smaller than it is — and pushing detail onto a shelf is how it happens, because the pointer lands in a step and the Inputs line never follows it.
 - Is any routing file carrying content payload? Move the payload to a shelf; leave a pointer.
 - Is any fact stored in two places? Pick one home; link from the other.
-- Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md). That file is the one home for every token figure.
+- Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md).
 - System map only: can a cold agent answer *what is X* and *what else moves if I change X* from `map/CLAUDE.md` plus one card? Extra checks are in [references/system-map.md](references/system-map.md).
 
 If a step fails, fix the structure — not by explaining more, but by moving or splitting files until the walk works.
@@ -123,10 +123,10 @@ If a step fails, fix the structure — not by explaining more, but by moving or 
 ## References
 
 - [references/core.md](references/core.md) — the five design principles, the five-layer context hierarchy, the contract format, naming conventions, library rules. Read when writing contracts or when a structural call is contested.
-- [references/budgets.md](references/budgets.md) — every token figure, the per-section contract budgets, how to count a step's whole load, and the remedies when a layer is over. The one home for sizes.
+- [references/budgets.md](references/budgets.md) — every token figure, the per-section contract budgets, how to count a step's whole load, the remedies when a layer is over, and where a product lands. The one home for sizes.
 - [references/forms.md](references/forms.md) — the six forms in depth: skeletons, moves, failure modes. Read at step 2 of Build mode or step 2 of Restructure mode.
 - [references/system-map.md](references/system-map.md) — audit pipeline for the System map form. Read when that form is chosen.
 - [references/maintain.md](references/maintain.md) — where a fix lands, holding the budget, sourcing claims, and how to review a change so the review finds real defects. Read at the start of Maintain mode.
-- [assets/templates/](assets/templates/) — copyable starters: `CLAUDE.md`, workspace `CONTEXT.md`, `stage-CONTEXT.md`, `node.md`, `object.md`, `process.md`, `schema.md`, `questionnaire.md`.
-- [assets/check-references.py](assets/check-references.py) — the mechanical cross-reference pass. Copy into the workspace and set the five constants at the top. It resolves the workspace from **the script's own location, not your cwd** — put it at the workspace root, or always pass `--root`.
+- [assets/templates/](assets/templates/) — copyable starters. Every form: `CLAUDE.md`, workspace `CONTEXT.md`, `stage-CONTEXT.md`. Pipeline: `questionnaire.md`. Context map: `node.md` (a process node; other types follow `schema.md`), `schema.md`. System map: `object.md`, `process.md`.
+- [assets/check-references.py](assets/check-references.py) — the mechanical cross-reference pass. Copy into the workspace and set the constants at the top; its setup, its ceiling and its `--self-test` are in [references/maintain.md](references/maintain.md).
 - [assets/evaluate-stage.py](assets/evaluate-stage.py) — scores a stage contract section by section against the budgets, counts the acts in its Human check, and names the remedy for each miss. It cannot tell an attestation from a transcription; it flags the count and asks you to classify. Takes stage directories as arguments, relative to your cwd. Run it before and after every change to a contract.

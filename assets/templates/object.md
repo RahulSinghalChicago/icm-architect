@@ -1,8 +1,10 @@
 ---
 type: object
 cluster: {cluster}
-universe: live
+universe: {live|leftover|ghost}
 status: stub
+verified: {date}       # `status: verified` needs both, plus citations
+verified-against: {branch, commit, or vault revision}
 entity: {path to the owning file}
 ---
 

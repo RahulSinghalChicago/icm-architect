@@ -26,7 +26,7 @@ group is an every-run load.}
 ## Process
 1. {Read the inputs.}
 2. {Transform, following the reference constraints.}
-3. {Hard limits worth restating: length, count, format.}
+3. {Write the output to the path under Outputs.}
 
 {A step names what to run and the one rule that governs it. If a step needs several
 commands, or a command plus an explanation of its flags, the invocation belongs on this

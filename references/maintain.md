@@ -4,7 +4,7 @@ Build and Restructure both end at a workspace that works. Everything after that 
 
 Read this when changing a workspace that already exists — applying a review finding, encoding a new rule, fixing something a run exposed, or adding to a folder that grew.
 
-The numbers below come from one production workspace's audit record: nine review rounds over a live operations pipeline, thirteen commits, every round's findings and every fix round's own defects written down. They are here because the shape repeats, not because your workspace will have the same counts.
+The numbers below come from one production workspace's audit record: nine review rounds over a live operations pipeline, fourteen commits, every round's findings and every fix round's own defects written down. They are here because the shape repeats, not because your workspace will have the same counts.
 
 ## Where a fix lands
 
@@ -27,13 +27,13 @@ The table below names pipeline objects because that is the form it was written f
 
 ## Holding the budget
 
-Budgets and the remedies when a layer is over are in [budgets.md](budgets.md). Two things belong here instead, because they are about the loop rather than the number.
+Budgets and the remedies when a layer is over are in [budgets.md](budgets.md). Three things belong here instead, because they are about the loop rather than the number.
 
 **Additions compound and nobody notices.** Adding text is how a review finding gets answered — every round, by default. In the record above, the contracts grew monotonically across thirteen commits while genuinely becoming more correct, and the first reduction came at commit fourteen, only because someone measured. Correctness and size move independently. Track size explicitly or it only goes one way.
 
-**Ratchet the number; do not re-litigate it.** Record each contract's measured size in a checked-in baseline file, and have your checker fail when a contract *grows* past its recorded size — with a deliberate switch to re-baseline when the growth is intended. Absolute budgets cannot gate a workspace that is over them everywhere: a check red on every folder is a check nobody runs. A ratchet is green on the day you install it and can only be loosened on purpose.
+**Ratchet the number; do not re-litigate it.** Record each contract's measured size in a checked-in baseline file, and have your checker fail when a contract *grows* past its recorded size — with a deliberate switch to re-baseline intended growth. Neither script in `../assets/` ships that ratchet; write it. Absolute budgets cannot gate a workspace that is over them everywhere: a check red on every folder is a check nobody runs. A ratchet is green on the day you install it.
 
-**Measure after, not before.** The reduction that finally worked came almost entirely from one line: demoting a single reference from every-run to conditional, after checking that everything a run needed from it was already in two files the stage read anyway. That one line beat thirty text moves put together, in the same commit, against the same files. If you are editing sentences to save tokens, you are pulling the small lever.
+**Cut the load, not the sentences.** The reduction that finally worked came almost entirely from one line: demoting a single reference from every-run to conditional, after checking that everything a run needed from it was already in two files the stage read anyway. That one line beat thirty text moves put together, in the same commit, against the same files. If you are editing sentences to save tokens, you are pulling the small lever.
 
 ## Re-walking a change
 
@@ -71,9 +71,9 @@ A review that only asks whether the documents agree with each other will keep fi
 
 ## The mechanical check and its ceiling
 
-Some defects need no judgement: a citation to a file that is gone, a section name that is not in the file it names, a symbol or flag no code has ever had, a line citation pointing past the end of the file it names. Those are worth catching in code. [../assets/check-references.py](../assets/check-references.py) is a starting point — copy it into the workspace and set the constants at the top. It resolves the workspace from the script's own location, not your cwd, so put it at the root or pass `--root`. It ships a `--self-test`; run that first, so the checks have been seen to fail before you trust them to pass.
+Some defects need no judgement: a citation to a file that is gone, a section name that is not in the file it names, a symbol or flag no code has ever had, a line citation pointing past the end of the file it names. Those are worth catching in code. [../assets/check-references.py](../assets/check-references.py) is a starting point — copy it into the workspace and set the constants at the top. It resolves the workspace from the script's own location, not your cwd, so put it at the root or pass `--root`. It ships a `--self-test`; run it before you trust a clean run, and after any edit to the script.
 
-Four things to know before you trust it, all learned the hard way:
+Five things to know before you trust it, all learned the hard way:
 
 - **Tune it or it is worse than nothing.** The first honest run of the original returned 389 problems, essentially none real: per-run artifact names read as repo paths, CSS custom properties read as CLI flags, closed historical records flagged for citing paths that were correct when written. It took four passes to get from 389 to 3 to 0. A checker that cries wolf gets ignored, and then it is a checker nobody runs that everyone cites.
 - **Name every quarantined folder before the first run.** A checker walks by opening files, so a workspace with a tree its data policy protects — customer rows, credentials — is having that tree read by tooling on every check until you exclude it. There is no safe default name, so this is a setup step, not a tuning step. The same run also returns that tree's per-run artifact names as dead citations, which is how you find out.

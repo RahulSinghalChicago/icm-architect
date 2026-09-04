@@ -107,6 +107,10 @@ NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
 # input used to match nothing here and left no row at any scope. A `$VAR/`-rooted path is
 # matched so that it appears as a row; it resolves only if the variable is a real folder.
 EXT = r"md|csv|py|json|ya?ml|txt"
+# A path with a space matches no citation regex here, so it produced no row at all and its
+# whole load vanished from the total. Widening CITE would swallow prose; instead the entry
+# is reported as uncountable, which is what it is. check-references.py flags it too.
+SPACED = re.compile(rf"`[\w][\w./-]*(?: [\w][\w./-]*)+\.(?:{EXT})`")
 CITE = re.compile(rf"`([\w$./-]+\.(?:{EXT}))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{{3,60}})[\"\u201d])?")
 # A reader writes `file.md` (Section A; Section B) and believes they have scoped it. The
 # counter only honours quotes, so that citation is charged as the WHOLE file -- silently,
@@ -200,6 +204,9 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                 scope = "every run"
             else:
                 scope, unscoped = "every run", True
+        for m in SPACED.finditer(entry):
+            rows.append((f"  {m.group(0).strip('`')}  <- UNCOUNTABLE (space in path), counted 0",
+                         0, scope))
         cites = list(CITE.finditer(entry))
         for i, m in enumerate(cites):
             rel = m.group(1)

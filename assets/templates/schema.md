@@ -6,7 +6,7 @@ The closed set of note types, the labels they carry, and the naming they follow.
 
 | `type:` | Lives at | Carries |
 |---|---|---|
-| team | `teams/<slug>/{Team Name}.md` | In / Movement / Out / Edges |
+| team | `teams/<slug>/{Team-Name}.md` | In / Movement / Out / Edges |
 | process | `teams/<slug>/processes/<slug>.md` | full scoring frontmatter (see node template) |
 | job | `teams/<slug>/jobs/<slug>.md` | the outcome, who owns it |
 | data-asset | `teams/<slug>/data/data-<thing>.md` | source of truth, shape, sensitivity |
@@ -15,10 +15,12 @@ The closed set of note types, the labels they carry, and the naming they follow.
 
 ## Labels that make it queryable
 
-`type`, `team`, `owner`, `ai-level` (L0–L3), `value` (1–5), `pain` (1–5), `governance` (internal / sensitive / external). `consumes:` and `produces:` are wikilinks to data assets — the links draw the map on their own. value + pain ≥ 8 flags a pilot candidate.
+`type`, `team`, `owner`, `governance`, `ai-level`, `frequency`, `value` (1–5), `pain` (1–5) — the node template carries the enums. `consumes:` and `produces:` are wikilinks to data assets — the links draw the map on their own. value + pain ≥ 8 flags a pilot candidate.
 
 ## Naming
 
 - Slugs: kebab-case. Data assets always `data-<thing>.md`.
-- Human-browsed cards may use Title Case filenames — but declare that choice here and hold it everywhere.
+- Human-browsed cards may use Title Case — hyphenated (`Team-Name.md`), declared here, held
+  everywhere. No path regex in `check-references.py` or `evaluate-stage.py` matches a space, so
+  *Team Name.md* is invisible to both the load count and the dead-path check.
 - `_meta/` holds the rules (this file). Generated indexes are rebuilt by script, never hand-edited.
