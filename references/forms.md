@@ -2,6 +2,8 @@
 
 One skeleton, six jobs. Every form obeys the ten invariants; what changes is what the repeating unit is and what the structure optimizes for. All six are drawn from production workspaces, not theory.
 
+**Over budget, not split:** 2,476 tokens on 2026-09-06 against the 2k L3 budget in [budgets.md](budgets.md) — 24% over, which that file calls *materially* over. Recorded, not excused. One reader arrives here, asking which of six this is; splitting divides the comparison. Ratchet from that number (`maintain.md`, "Ratchet the number"). The sixth form's method is an audit pipeline, so it has a shelf of its own; the other five have no method to move.
+
 Contents: Selection · 1 Pipeline · 2 Umbrella · 3 Record library · 4 Knowledge bundle · 5 Context map · 6 System map · Composing forms
 
 ## Selection
@@ -84,7 +86,7 @@ workspace/
 - **A new record is a copy, not a blank page.** The template *is* the schema.
 - The index log is the declared source of truth for what exists, its id, and its status — one line per record, statuses forming a small lifecycle (`briefed → active → archived`).
 - Naming convention doubles as an id scheme (`ht10-second-brain`: type + counter + slug).
-- Records can recurse: each record may internally be a mini knowledge bundle or pipeline (a person-record holding its own layered brain; a session-record holding its own six-stage line). Uniformity across records is what makes the library queryable.
+- Records can recurse — a record may itself be a knowledge bundle or a pipeline (Composing forms, below). Uniformity across records is what makes the library queryable.
 
 **Watch for:** records drifting from the template shape (re-stamp them); the index log absorbing content (it's a catalog line, not the record); half-created records with only one file (finish the stamp or archive it).
 
@@ -144,7 +146,7 @@ workspace/
 
 ## 6. System map — a body of work as an edit graph
 
-The subject is a tree someone will change: a repository, a markdown vault, or both. The map exists so a later agent can answer “what is this” and “what else moves” without slurping the tree. Nouns are object cards; verbs are process cards; `effects/` is only an index into those cards.
+The subject is a tree someone will change: a repository, a markdown vault, or both. The map exists so a later agent can answer “what is this” and “what else moves” without slurping the tree. The subject tree stays authoritative; the map only cites it.
 
 ```
 subject/
@@ -153,21 +155,18 @@ subject/
    ├─ CLAUDE.md              catalog (generate AGENTS.md + routing.md)
    ├─ CONTEXT.md             universes + name collisions
    ├─ _meta/schema.md
-   ├─ _templates/            object.md, process.md
-   ├─ objects/               record library of nouns
-   ├─ processes/             real movements only
-   └─ effects/CONTEXT.md     if you change X, open these cards
+   ├─ objects/               record library of nouns — object cards
+   ├─ processes/             real movements only — process cards
+   └─ effects/CONTEXT.md     if you change X, open these cards — an index, not a copy
 ```
 
 **Defining moves:**
-- The subject tree remains authoritative. Cards cite `path:line` (code) or the owning file (markdown). Aspiration and dead types are `ghost`, not live.
-- Slices are gated: inventory → catalog → nouns → verbs → impact index → re-verify. Empty `processes/` / `effects/` folders are forbidden.
-- **Hits / Does not hit** is the waterfall. “Does not hit” names the obvious next noun that is the wrong one.
+- Every card declares a universe — **live** (in force), **leftover** (present, off the main path), **ghost** (named, not wired). Implement only against live.
 - Compose with Record library (the cards) inside this form. Do not confuse this with Context map (an org) or Knowledge bundle (how something thinks).
 
-**Watch for:** copying behaviour into cards; mapping intent docs as live; two hand-edited entry files; marking `verified` without a citation.
+**Watch for:** aspiration mapped as live (ghost it); behaviour copied into cards instead of cited; empty `processes/` or `effects/` folders.
 
-The audit pipeline, card sections, and walk test for this form: [system-map.md](system-map.md).
+Method — the gated audit slices, how a card cites source, the card sections, **Hits / Does not hit**, the walk test, the failure modes — is in [system-map.md](system-map.md), read once the form is chosen.
 
 ## Composing forms
 

@@ -33,19 +33,24 @@ Every result is validated with the **walk test**: an agent with no memory must o
 icm-architect/
 ├─ SKILL.md              the method: invariants, the three modes, walk test
 ├─ references/
-│  ├─ core.md            five principles, the layer hierarchy, contract format, naming
-│  ├─ budgets.md         every token figure, the per-section budgets, and the remedies
+│  ├─ core.md            five principles, the layer hierarchy, naming, library rules
+│  ├─ contracts.md       the stage contract format, and how each section is worded
+│  ├─ budgets.md         every token figure, the per-section budgets, how to count a load
+│  ├─ remedies.md        what to do when a layer is over, in the order the fixes move
 │  ├─ forms.md           the six forms in depth: skeletons, moves, failure modes
 │  ├─ system-map.md      audit pipeline for the System map form
-│  └─ maintain.md        changing a built workspace: where a fix lands, claim
-│                        sourcing, re-walking, how to review a change
+│  ├─ maintain.md        changing a built workspace: where a fix lands, claim
+│  │                     sourcing, re-walking a change
+│  └─ review.md          running a review that finds real defects, and the mechanical
+│                        check with its ceiling
 └─ assets/
    ├─ templates/         copyable starters: CLAUDE.md, CONTEXT.md, stage contract,
    │                     node card, object/process cards, schema, questionnaire
    ├─ check-references.py  the mechanical cross-reference pass, with its ceiling
    │                     documented and a --self-test that proves each check can fail
    └─ evaluate-stage.py  scores a stage contract section by section against the
-                         budgets and names the remedy for each miss
+                         budgets, measures a step's whole load, and ratchets file
+                         sizes so a shelf cannot quietly grow
 ```
 
 MIT licensed, like the protocol it serves.

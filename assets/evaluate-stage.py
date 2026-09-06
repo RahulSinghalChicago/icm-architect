@@ -4,12 +4,14 @@
 The walk test in SKILL.md is a set of questions a person asks. Most of them have a
 checkable form, and the ones that do belong in a script — a criterion nobody measures
 is a criterion nobody meets. This measures those and names the remedy for each miss,
-in the order budgets.md says to try them.
+in the order remedies.md says to try them.
 
     python3 evaluate-stage.py stages/01_export-evidence          # one stage
     python3 evaluate-stage.py stages/*/                          # the whole pipeline
     python3 evaluate-stage.py --load stages/01_export-evidence   # the whole-step load;
                                                                  # run from the workspace root
+    python3 evaluate-stage.py --ratchet CLAUDE.md stages/*/CONTEXT.md   # fail on growth
+    python3 evaluate-stage.py --rebaseline CLAUDE.md stages/*/CONTEXT.md  # record sizes
 
 Exit 1 if any stage fails. What it CANNOT judge: whether the contract is true, whether
 its human check would catch what it exists to catch, or whether a pointer leads
@@ -17,6 +19,7 @@ somewhere useful. Passing means the shape is right.
 """
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -55,6 +58,13 @@ TOKENS_PER_WORD = 1.359
 
 REQUIRED = ("Inputs", "Process", "Outputs", "Human check")
 
+# maintain.md, "Ratchet the number; do not re-litigate it". An absolute budget cannot gate a
+# workspace that is over it everywhere -- a check red on every folder is a check nobody runs --
+# so the gate is GROWTH against a recorded size, which is green the day it is installed and can
+# only be loosened on purpose. The record is a checked-in file so the number survives the
+# session that measured it; --rebaseline is the deliberate switch.
+BASELINE = "token-baseline.json"
+
 
 def tokens(text: str) -> int:
     return round(len(re.findall(r"\S+", text)) * TOKENS_PER_WORD)
@@ -75,13 +85,13 @@ def sections(text: str) -> dict[str, str]:
 def human_acts(body: str) -> int:
     """How many distinct acts the Human check appears to contain.
 
-    The seam of a stage is its human gate (budgets.md, remedy 3). Counting is a proxy and
+    The seam of a stage is its human gate (remedies.md, remedy 3). Counting is a proxy and
     it is reported as a WARN, never a verdict: no script can tell an ATTESTATION (a
     judgement no machine can make) from a TRANSCRIPTION (a value copied out of a file).
     That classification is the actual test, and it is yours.
 
     An earlier version counted only one house style -- bold `**1 — ` headings -- so an
-    ordinary numbered list, including the example in core.md, scored one act."""
+    ordinary numbered list, including the example in contracts.md, scored one act."""
     m = re.search(r"(?<!not )\b(two|three|four)\s+(?:checks|sittings|acts|judgements|judgments)\b",
                   body, re.I)
     announced = {"two": 2, "three": 3, "four": 4}[m.group(1).lower()] if m else 0
@@ -99,7 +109,7 @@ def human_acts(body: str) -> int:
 # whatever that reference costs out of what the step actually reads. Counting rule:
 # budgets.md, "How to count the whole load".
 EVERY_RUN = re.compile(r"every run", re.I)
-WORKING = re.compile(r"this run|working", re.I)     # core.md's first scope; counts, whole file
+WORKING = re.compile(r"this run|working", re.I)     # contracts.md's first scope; counts, whole file
 CONDITIONAL = re.compile(r"only if|only when|if disputed|dispute only|when contested", re.I)
 NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
 # One extension list for every path read out of a contract, the same list as PATH_RE in
@@ -188,7 +198,7 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
         unscoped = False
         if not indented:
             # A top-level entry declares its own scope, and only an indented entry inherits
-            # one (core.md, "In a grouped list the indentation carries the scope"). Classify
+            # one (contracts.md, "In a grouped list the indentation carries the scope"). Classify
             # from the LABEL -- the text before the first cited path -- and from nothing
             # else: a gloss after the path is for the reader. An earlier version let the
             # scope carry over from the previous top-level entry and, when the label had
@@ -221,7 +231,7 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                 # total read smaller than the contract declares.
                 rows.append((f"  {rel}  <- NOT FOUND, counted 0", 0, scope))
                 continue
-            # A quoted heading belongs to the path it FOLLOWS -- core.md, "Cite a section in
+            # A quoted heading belongs to the path it FOLLOWS -- contracts.md, "Cite a section in
             # quotes, right after the path". Scanning to the end of the entry let an unscoped
             # path swallow the NEXT path's section name whenever that name was also a heading
             # in the earlier file, and charge itself that one section instead of the whole
@@ -295,7 +305,7 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
             f"the Human check appears to contain {acts} acts. Classify each before doing "
             "anything: an ATTESTATION is a judgement no machine can make and is what makes a "
             "stage; a TRANSCRIPTION is a value copied out of a file and belongs in the Process "
-            "as a stop condition. Two attestations is a split (budgets.md, remedy 3). An "
+            "as a stop condition. Two attestations is a split (remedies.md, remedy 3). An "
             "attestation plus a transcription is one stage. No script can tell them apart.")))
 
     for name, got, budget, sev in over:
@@ -344,8 +354,98 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
     return out
 
 
+def ratchet(paths: list[str], root: Path, rebaseline: bool) -> int:
+    """Fail when a file has grown past its recorded size. Sizes are this script's estimator.
+
+    Not a budget check: a file already over budget passes here as long as it has not grown,
+    which is the whole point -- the ratchet is installable on a workspace that is over
+    everywhere, and every absolute budget in budgets.md still applies on its own terms.
+    """
+    store = root / BASELINE
+    try:
+        recorded = json.loads(store.read_text(encoding="utf-8")) if store.exists() else {}
+    except (OSError, ValueError) as exc:
+        print(f"FAIL  {BASELINE} could not be read: {exc!r}")
+        return 1
+    if not isinstance(recorded, dict):
+        print(f"FAIL  {BASELINE} is not an object of path -> tokens")
+        return 1
+
+    measured, missing, worst = {}, [], 0
+    for a in paths:
+        f = Path(a)
+        if not f.is_file():
+            missing.append(a)
+            continue
+        try:
+            measured[str(f.as_posix())] = tokens(f.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"FAIL  {a}: could not be read: {exc!r}")
+            worst = 1
+    for a in missing:
+        print(f"FAIL  {a:<34}  not a file")
+        worst = 1
+
+    if rebaseline:
+        if worst:
+            print("\nnot written: fix the failures above first, so the record is of real files")
+            return worst
+        store.write_text(json.dumps(dict(sorted(measured.items())), indent=1) + "\n",
+                         encoding="utf-8")
+        total = sum(measured.values())
+        print(f"{BASELINE}: recorded {len(measured)} files, {total} tokens.\n"
+              "This is the deliberate switch. The diff on this file is the record that the "
+              "growth was intended -- say in the commit message why.")
+        return 0
+
+    grew, shrank, new = [], [], []
+    for path, now in sorted(measured.items()):
+        was = recorded.get(path)
+        if was is None:
+            new.append((path, now))
+        elif now > was:
+            grew.append((path, was, now))
+        elif now < was:
+            shrank.append((path, was, now))
+    gone = sorted(set(recorded) - set(measured))
+
+    for path, was, now in shrank:
+        print(f"down  {path:<34}{was:>6} ->{now:>6}   -{was - now}")
+    for path, now in new:
+        print(f"new   {path:<34}{'':>6}   {now:>6}   not in {BASELINE}; --rebaseline to record")
+    for path in gone:
+        print(f"gone  {path:<34}{recorded[path]:>6}          recorded, not measured this run")
+    for path, was, now in grew:
+        print(f"GREW  {path:<34}{was:>6} ->{now:>6}   +{now - was}")
+        worst = 1
+
+    if grew:
+        print(f"\n{len(grew)} file(s) grew past the recorded size. Adding text is how a finding "
+              "gets answered, every round, by default (maintain.md). Name the sentence that "
+              "leaves, or re-run with --rebaseline and say in the commit why the growth was "
+              "intended.")
+    elif not new and not gone:
+        print(f"ratchet: {len(measured)} file(s), none grew. This says nothing about whether any "
+              "of them is within its budget -- that is the table in budgets.md.")
+    if shrank and not grew:
+        # budgets.md, "Benchmark against your own best folder": a file measuring under its
+        # recorded size resets the target downward. Until the record is rewritten it does
+        # not, and the file may grow back to the old number for free.
+        print(f"\n{len(shrank)} file(s) shrank. The reduction is not locked in until the record "
+              "says so: --rebaseline, or they may grow back to the old number for free.")
+    return worst
+
+
 def main() -> int:
     worst = 0
+    for flag, rebase in (("--ratchet", False), ("--rebaseline", True)):
+        if flag in sys.argv[1:]:
+            args = [a for a in sys.argv[1:] if a not in ("--ratchet", "--rebaseline")]
+            if not args:
+                print(f"usage: evaluate-stage.py {flag} <file> [...]   "
+                      f"(sizes are compared against ./{BASELINE}, relative to your cwd)")
+                return 1
+            return ratchet(args, Path.cwd(), rebase)
     if "--load" in sys.argv[1:]:
         args = [a for a in sys.argv[1:] if a != "--load"]
         root = Path.cwd()
