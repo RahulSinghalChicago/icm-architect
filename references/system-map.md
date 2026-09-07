@@ -85,6 +85,8 @@ Each process card: Input → Movement → Output; numbered steps with citations;
 
 `effects/CONTEXT.md` is a catalog: “if you are changing X, open these cards.” It does not copy waterfalls. If the index and a card disagree, fix the card.
 
+Then walk it backwards. The index answers “I am changing X, what inside the tree moves.” It does not answer “what outside the tree points in.” Ask the owner — configs, issue trackers, agents, scheduled jobs — for absolute paths into the subject, and record each one on the card it lands on. These consumers break silently: nothing in the tree references them, so no card names them until you go looking.
+
 ### 5 — Re-verify
 
 After the first fill, rip the load-bearing claims again (especially Hits / Does not hit). Wrong waterfalls are more expensive than missing cards.
@@ -120,3 +122,4 @@ If a step fails, split or move files. Do not add a “how to read this map” no
 - Two hand-edited entry files (`CLAUDE.md` and `AGENTS.md` that drift).
 - Cards with no citations marked `verified`.
 - Slurping the whole `objects/` folder in a later session — the catalog exists so you do not.
+- An `effects/` index that only walks outward. What points INTO the tree from outside is invisible from inside it.

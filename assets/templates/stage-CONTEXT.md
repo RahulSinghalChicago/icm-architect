@@ -8,7 +8,8 @@
 One job: {the single thing this stage does}.
 
 ## Inputs
-- Working (this run): `../{NN-1}_{prev-stage}/output/{file}`
+- Working (this run): `../{prev-stage-folder}/output/{file}` — the previous folder's real
+  name, not a formula; renumbering the pipeline means editing this path
 - Reference (every run): `../../_shared/{rules-file}.md`, "{Exact Heading}" — one entry
   per section, heading in double quotes so the scope is machine-readable
 - Reference (every run): `references/{stage-specific-guide}.md`

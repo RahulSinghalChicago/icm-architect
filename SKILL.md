@@ -24,7 +24,7 @@ Every ICM, whatever its form, obeys these. When building or restructuring, enfor
 7. **Load only what the step needs.** An agent executing a step reads its contract, its references, and its inputs — not the whole workspace. The token budgets in [references/budgets.md](references/budgets.md) are limits, not observations: a file over its budget is a defect with a due date.
 8. **Plain text, linkable, queryable.** Markdown + YAML frontmatter. Links (`[[wikilinks]]` or relative paths) make it a graph; frontmatter labels make it queryable. One home per fact — a link beats a copy.
 9. **The filesystem is the state machine.** "Status" is derivable by scanning what exists in output folders. Generated indexes (file maps, logs) are rebuilt by script, never hand-edited.
-10. **Instantiate by copying.** New unit of work = copy a template folder, not a blank page. Keep templates in a `_templates/` or `_system/` folder.
+10. **Instantiate by copying.** New unit of work = copy a template folder, not a blank page. Keep templates in a `_templates/` folder.
 
 ## Choose a mode
 
@@ -77,13 +77,15 @@ Real workspaces mix forms (a record library whose records are mini knowledge bun
 - **Contract** — describes how a step works (becomes a `CONTEXT.md`)
 - **Factory** — stable reference (→ `_shared/`, `_system/`, or `references/`)
 - **Product** — run-specific artifacts (→ stage `output/` or record folders)
-- **Dead** — stale, duplicated, or superseded (→ propose `_archive/`, never silently delete)
+- **Dead** — stale, duplicated, or superseded (→ propose `_archive/`, never silently delete). A file is Dead only after step 4 confirms nothing depends on it — apparent disuse is not proof.
 
-**4. Propose before moving.** Present the target tree and a migration map (old path → new path → role). Get approval. This is a human gate in a method built on human gates — honor it.
+**4. Verify reference integrity — before proposing.** Apparent disuse is not proof of safety. Before any file is proposed for a move — especially a `Dead → _archive/` move — enumerate what points at it: in-vault, sibling-path (`../`), symlink, and outside this workspace (other repos, configs, scheduled jobs that hardcode a path in). External consumers are a question for the human gate, not an unbounded grep. A file with a live referrer is held, or moved only if every referrer is updated in the same change. See [references/reference-integrity.md](references/reference-integrity.md).
 
-**5. Migrate.** Move files, write the entry file and contracts, de-duplicate toward one-home-per-fact (leave a link where the copy lived if anything might reference it). Separate method from instance: if the structure will be reused elsewhere, the blank template lives apart from this filled-in deployment.
+**5. Propose before moving.** Present the target tree and a migration map (old path → new path → role → referrers found). Get approval. This is a human gate in a method built on human gates — honor it. The reviewer approves against the reference report from step 4, not against a hunch.
 
-**6. Validate with the walk test.**
+**6. Migrate — copy, verify, then remove.** Never move-and-hope. Before any copy or rename, check whether the destination already exists **case-folded** — on Windows and macOS, `CLAUDE.md` → `CONTEXT.md` silently overwrites an existing `context.md`, and a file-inventory map will not show the collision. Surface every hit at the approval gate. Then copy to the new home, verify parity (file count and content hash) against the source, and only then remove the original. Write the entry file and contracts, de-duplicate toward one-home-per-fact (leave a link where the copy lived if anything referenced it). Separate method from instance: if the structure will be reused elsewhere, the blank template lives apart from this filled-in deployment.
+
+**7. Validate with the walk test.**
 
 ## Maintain mode
 
@@ -109,6 +111,7 @@ Validate any ICM — new, restructured, or changed — by walking it cold, as an
 - Walk the Process and the Human check. Does every file, section and command they send you to appear in Inputs, at the scope it is actually used? A file a step reads but never declares makes the whole-step load read smaller than it is — and pushing detail onto a shelf is how it happens, because the pointer lands in a step and the Inputs line never follows it.
 - Is any routing file carrying content payload? Move the payload to a shelf; leave a pointer.
 - Is any fact stored in two places? Pick one home; link from the other.
+- After a restructure: does every reference that existed *before* the move still resolve? A moved file that something still points at is a break, not a tidy-up.
 - Token check: the whole-step budget and the rule for counting it are in [references/budgets.md](references/budgets.md).
 - System map only: can a cold agent answer *what is X* and *what else moves if I change X* from `map/CLAUDE.md` plus one card? Extra checks are in [references/system-map.md](references/system-map.md).
 
@@ -128,6 +131,7 @@ If a step fails, fix the structure — not by explaining more, but by moving or 
 - [references/remedies.md](references/remedies.md) — what to do when a layer is over: the three remedies in the order they move, the test for whether a folder really wants splitting, and the Inputs list's own five.
 - [references/forms.md](references/forms.md) — the six forms in depth: skeletons, moves, failure modes. Read at step 2 of Build mode or step 2 of Restructure mode.
 - [references/system-map.md](references/system-map.md) — audit pipeline for the System map form. Read when that form is chosen.
+- [references/reference-integrity.md](references/reference-integrity.md) — the move-safety gate: what points at a file, case-folded destinations, copy-verify-remove. Read at step 4 of Restructure mode, or any time a move is contested.
 - [references/maintain.md](references/maintain.md) — where a fix lands, holding the budget, re-walking a change, sourcing claims. Read at the start of Maintain mode.
 - [references/review.md](references/review.md) — how to review a change so the review finds real defects, and the mechanical check with its ceiling.
 - [assets/templates/](assets/templates/) — copyable starters. Every form: `CLAUDE.md`, workspace `CONTEXT.md`, `stage-CONTEXT.md`. Pipeline: `questionnaire.md`. Context map: `node.md` (a process node; other types follow `schema.md`), `schema.md`. System map: `object.md`, `process.md`.

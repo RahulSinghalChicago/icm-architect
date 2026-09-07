@@ -25,7 +25,7 @@ Every result is validated with the **walk test**: an agent with no memory must o
 
 **Claude Code:** copy this folder to `~/.claude/skills/icm-architect/` (or `.claude/skills/icm-architect/` inside a project), then ask Claude to "ICM this" / "structure this for agents" / "build me a workspace for X".
 
-**Claude apps:** upload `icm-architect.skill` (build it with the skill-creator packager, or zip this folder's contents) via Settings → Capabilities.
+**Claude apps:** upload `icm-architect.skill` (build it with the skill-creator packager, or zip the `icm-architect/` folder itself — the folder is the zip root, not its contents) via [Customize → Skills](https://claude.ai/customize/skills).
 
 ## Layout
 
@@ -39,6 +39,8 @@ icm-architect/
 │  ├─ remedies.md        what to do when a layer is over, in the order the fixes move
 │  ├─ forms.md           the six forms in depth: skeletons, moves, failure modes
 │  ├─ system-map.md      audit pipeline for the System map form
+│  ├─ reference-integrity.md  the move-safety gate: what points at a file, case-folded
+│  │                     destinations, copy-verify-remove
 │  ├─ maintain.md        changing a built workspace: where a fix lands, claim
 │  │                     sourcing, re-walking a change
 │  └─ review.md          running a review that finds real defects, and the mechanical

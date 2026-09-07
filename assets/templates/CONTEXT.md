@@ -11,7 +11,8 @@ The flow in one line: {plan it, make it, check it, ship it — in your workspace
 Factory (stable, every run): `_shared/{voice.md, rules.md, …}`
 Product (new each run): each stage's `output/`
 
-Status is whatever exists: a stage is COMPLETE when its `output/` holds files other than
-`.gitkeep`. {A run begins by emptying every `output/` — or say here where each run writes
+Status is whatever exists: a stage is COMPLETE when its `output/` holds an artifact — a
+placeholder that only keeps the empty folder in git (`.gitkeep` and its variants) does not
+count. {A run begins by emptying every `output/` — or say here where each run writes
 instead, and keep the CLAUDE.md routing row in step with it. Run two reads run one's files
 otherwise.}
