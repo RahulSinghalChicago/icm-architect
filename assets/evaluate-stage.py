@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
-"""Score a stage contract against the ICM criteria, mechanically.
-
-The walk test in SKILL.md is a set of questions a person asks. Most of them have a
-checkable form, and the ones that do belong in a script — a criterion nobody measures
-is a criterion nobody meets. This measures those and names the remedy for each miss,
-in the order remedies.md says to try them.
+"""Check contract shape, estimate loaded context, and ratchet recorded file sizes.
 
     python3 evaluate-stage.py stages/01_export-evidence          # one stage
     python3 evaluate-stage.py stages/*/                          # the whole pipeline
     python3 evaluate-stage.py --load stages/01_export-evidence   # the whole-step load;
                                                                  # run from the workspace root
+    python3 evaluate-stage.py --load --require-inputs stages/02_draft  # before execution
     python3 evaluate-stage.py --ratchet CLAUDE.md stages/*/CONTEXT.md   # fail on growth
     python3 evaluate-stage.py --rebaseline CLAUDE.md stages/*/CONTEXT.md  # record sizes
 
-Exit 1 if any stage fails. What it CANNOT judge: whether the contract is true, whether
-its human check would catch what it exists to catch, or whether a pointer leads
-somewhere useful. Passing means the shape is right.
+Export variables used in input paths before measuring; this tool never executes
+runbook assignments. Missing or unsupported required inputs make --load a lower
+bound; --require-inputs makes that condition fail. Conditional and never-load
+inputs are not opened.
+
+Exit 1 on a failed check. A pass covers the selected mode's checks, not the truth
+of a contract, the adequacy of its human judgment, or approval of an artifact.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -42,8 +43,7 @@ PROCESS_PER_STEP = 60       # one instruction and its guardrail
 # earlier version skipped any live contract carrying a line that began "Retired accounts
 # are excluded ..." -- printed as a skip, exit 0, never evaluated. A leading `>` or `**`
 # is allowed because the template shows the marker inside a comment or bold.
-RETIRED_RE = re.compile(r"^\s*(?:>\s*)?(?:\*{0,2})RETIRED\s+\d{4}-\d{2}-\d{2}\b"
-                        r"|^status:\s*retired\s*$", re.M)
+RETIRED_RE = re.compile(r"^\s*(?:>\s*)?(?:\*{0,2})RETIRED\s+\d{4}-\d{2}-\d{2}\b")
 # A criterion that fails at 205 against 200 gets gamed or ignored. Over budget is
 # reported; MATERIALLY over is a failure. The band is a reporting threshold, not extra
 # budget -- a section in it is still over, and should not be allowed to creep upward.
@@ -68,6 +68,20 @@ BASELINE = "token-baseline.json"
 
 def tokens(text: str) -> int:
     return round(len(re.findall(r"\S+", text)) * TOKENS_PER_WORD)
+
+
+def retired(text: str) -> bool:
+    """Only opening frontmatter or a leading dated signpost retires a contract."""
+    body = text.lstrip()
+    frontmatter = re.match(r"\A---\n(.*?)\n---(?:\n|$)", body, re.S)
+    if frontmatter:
+        if re.search(r"^status:\s*['\"]?retired['\"]?\s*$", frontmatter[1], re.M):
+            return True
+        body = body[frontmatter.end():]
+    lines = [line for line in body.splitlines() if line.strip()]
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    return bool(lines and RETIRED_RE.match(lines[0]))
 
 
 def sections(text: str) -> dict[str, str]:
@@ -112,39 +126,31 @@ EVERY_RUN = re.compile(r"every run", re.I)
 WORKING = re.compile(r"this run|working", re.I)     # contracts.md's first scope; counts, whole file
 CONDITIONAL = re.compile(r"only if|only when|if disputed|dispute only|when contested", re.I)
 NEVER = re.compile(r"pass to scripts|never load|do not load|do NOT load", re.I)
-# One extension list for every path read out of a contract, the same list as PATH_RE in
-# check-references.py so the two tools agree on what a path is. A .json or .yaml Working
-# input used to match nothing here and left no row at any scope. A `$VAR/`-rooted path is
-# matched so that it appears as a row; it resolves only if the variable is a real folder.
+# Supported input extensions match the reference checker's extension set.
+# Unlike that checker, the load counter also resolves exported run variables.
 EXT = r"md|csv|py|json|ya?ml|txt"
 # A path with a space matches no citation regex here, so it produced no row at all and its
 # whole load vanished from the total. Widening CITE would swallow prose; instead the entry
 # is reported as uncountable, which is what it is. check-references.py flags it too.
-SPACED = re.compile(rf"`[\w][\w./-]*(?: [\w][\w./-]*)+\.(?:{EXT})`")
-CITE = re.compile(rf"`([\w$./-]+\.(?:{EXT}))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]{{3,60}})[\"\u201d])?")
+CITE = re.compile(rf"`([\w${{}}./-]+\.(?:{EXT}))`(?:\s*[,(—-]*\s*[\"\u201c]([^\"\u201d\n]+)[\"\u201d])?")
 # A reader writes `file.md` (Section A; Section B) and believes they have scoped it. The
 # counter only honours quotes, so that citation is charged as the WHOLE file -- silently,
 # and the difference can be thousands of tokens. Detect the near-miss and say so.
-LOOKS_SCOPED = re.compile(rf"`[\w$./-]+\.(?:{EXT})`\s*\(([^)\n]{{3,120}})\)")
+LOOKS_SCOPED = re.compile(rf"`[\w${{}}./-]+\.(?:{EXT})`\s*\(([^)\n]+)\)")
 
 
 def named_section(path: Path, name: str) -> str:
-    """The body under the heading that matches `name`, its own sub-sections included.
+    """Body of an exact heading, case-insensitive, including its subsections.
 
-    Two earlier defects, both hiding load. The toggle fired at every ##-#### line, so a
-    section's own children were dropped -- and a heading whose body is entirely children
-    returned empty, was filtered out of `names`, and charged the WHOLE file under a label
-    reading "(whole file)". And the match was a bare substring, so citing "Match" also
-    charged "Match exceptions". A section now ends at the next heading of its own level
-    or higher, and an exact heading text wins over a substring when both are present.
+    Ends at the next heading of the same or higher level. Prefixes do not match:
+    citing "Match" must not silently count only "Match exceptions".
     """
-    lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     heads = [(i, len(m.group(1)), line[m.end():].strip())
              for i, line in enumerate(lines)
              if (m := re.match(r"^(#{2,4})\s+", line))]
     want = name.strip().lower()
-    hit = ([h for h in heads if h[2].lower() == want]
-           or [h for h in heads if want in h[2].lower()])
+    hit = [h for h in heads if h[2].lower() == want]
     if not hit:
         return ""
     out = []
@@ -161,9 +167,9 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
     seen_entry: dict[str, str] = {}          # text -> the file already charged for it
     for name in ("CLAUDE.md", "AGENTS.md", "CONTEXT.md"):
         f = root / name
-        if not f.exists() or f.is_symlink():
+        if not f.exists():
             continue
-        body = f.read_text(encoding="utf-8", errors="ignore")
+        body = f.read_text(encoding="utf-8")
         # AGENTS.md is generated as a byte-identical twin of CLAUDE.md (system-map.md,
         # "Generate AGENTS.md and routing.md as byte-identical twins"), and one agent
         # reads one of them. Charging both put up to 800 phantom tokens on the band.
@@ -175,7 +181,7 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
         seen_entry[body] = name
         rows.append((f"L0/L1 {name}", tokens(body), "loads on every step"))
     contract = stage / "CONTEXT.md"
-    text = contract.read_text(encoding="utf-8", errors="ignore")
+    text = contract.read_text(encoding="utf-8")
     rows.append(("L2 the contract", tokens(text), ""))
 
     inputs = sections(text).get("Inputs", "")
@@ -214,16 +220,26 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                 scope = "every run"
             else:
                 scope, unscoped = "every run", True
-        for m in SPACED.finditer(entry):
-            rows.append((f"  {m.group(0).strip('`')}  <- UNCOUNTABLE (space in path), counted 0",
-                         0, scope))
+        # Unsupported file extensions, spaces, variables and directory citations
+        # must remain visible rather than silently disappearing from the total.
+        for raw in re.findall(r"`([^`\n]+)`", entry):
+            if not CITE.fullmatch(f"`{raw}`") and re.search(r"[/\\]|\.[\w]+$", raw):
+                rows.append((f"  {raw}  <- UNCOUNTABLE (unsupported path), counted 0", 0, scope))
         cites = list(CITE.finditer(entry))
         for i, m in enumerate(cites):
             rel = m.group(1)
+            if scope != "every run":
+                # Scope zero means no contents are read, including for section
+                # discovery. A quoted heading is not permission to open the file.
+                rows.append((f"  {rel} (not loaded)", 0, scope))
+                continue
             # The stage's own folder first. A bare `references/guide.md` in a contract is
             # that stage's shelf (stage-CONTEXT.md:14); trying the root first charged a
             # same-named root file's size instead, silently and in either direction.
-            f = next((c for c in (stage / rel, contract.parent / rel, root / rel) if c.exists()), None)
+            # Expand exported variables only; never execute a contract or runbook.
+            bound = os.path.expandvars(rel)
+            candidates = (stage / bound,) if bound.startswith(("./", "../")) else (stage / bound, root / bound)
+            f = next((c for c in candidates if c.exists()), None)
             if f is None:
                 # Not found from the root, the stage, or beside the contract. On a fresh
                 # build that is the upstream output not yet produced; otherwise a typo or
@@ -231,18 +247,16 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                 # total read smaller than the contract declares.
                 rows.append((f"  {rel}  <- NOT FOUND, counted 0", 0, scope))
                 continue
-            # A quoted heading belongs to the path it FOLLOWS -- contracts.md, "Cite a section in
-            # quotes, right after the path". Scanning to the end of the entry let an unscoped
-            # path swallow the NEXT path's section name whenever that name was also a heading
-            # in the earlier file, and charge itself that one section instead of the whole
-            # file. Silent, order-dependent, and always in the direction that hides load: a
-            # 1,642-token file cited with no scope was charged 1. named_section matches by
-            # substring, so single words -- Outputs, Index, Convention -- collide across
-            # unrelated files. Bound both slices at the next citation.
+            # A quoted heading belongs to the preceding path. Stop at the next
+            # citation so its heading cannot accidentally narrow this input.
             stop = cites[i + 1].start() if i + 1 < len(cites) else len(entry)
             tail = entry[m.end(1):stop]
-            names = [n for n in re.findall(r"[\"\u201c]([^\"\u201d\n]{3,60})[\"\u201d]", tail)
-                     if named_section(f, n).strip()]
+            requested = re.findall(r"[\"\u201c]([^\"\u201d\n]+)[\"\u201d]", tail)
+            missing_sections = [n for n in requested if not named_section(f, n).strip()]
+            if missing_sections:
+                rows.append((f"  {rel}  <- UNCOUNTABLE (missing or empty sections: "
+                             f"{', '.join(missing_sections)}); charging whole file", 0, scope))
+            names = [] if missing_sections else requested
             note = ""
             if not names:
                 near = LOOKS_SCOPED.search(entry[m.start():stop])
@@ -252,23 +266,21 @@ def step_load(stage: Path, root: Path) -> tuple[int, list[tuple[str, int, str]]]
                     if any(named_section(f, c).strip() for c in cand):
                         note = "  <- UNQUOTED SCOPE, charged whole"
             if unscoped:
+                names = []
                 note += "  <- NO SCOPE LABEL, charged whole"
             label = f"  {rel}" + (f" ({len(names)} sections)" if len(names) > 1
                                   else f' ("{names[0]}")' if names else " (whole file)") + note
-            if scope != "every run":
-                rows.append((label, 0, scope))
-                continue
             # A reader opens a file once. The same path at the same scope and sections,
             # cited on two Inputs lines -- routinely a pointer in one bullet and the
             # declaration in another -- was charged twice. Report the repeat so it stays
             # visible, and count it once.
-            key = (str(f), scope, tuple(names))
+            key = (str(f.resolve()), scope, tuple(names))
             if key in counted:
                 rows.append((label + "  <- already counted above", 0, "every run"))
                 continue
             counted.add(key)
             body = "\n".join(named_section(f, n) for n in names) if names \
-                else f.read_text(encoding="utf-8", errors="ignore")
+                else f.read_text(encoding="utf-8")
             rows.append((label, tokens(body), "every run"))
     return sum(r[1] for r in rows), rows
 
@@ -283,13 +295,15 @@ def evaluate(stage: Path) -> list[tuple[str, str, str]]:
         text = contract.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         return [("FAIL", "readable", f"{contract} could not be read: {exc!r}")]
-    if RETIRED_RE.search(text):
+    if retired(text):
         return [("SKIP", "retired", "carries a retirement marker; not evaluated")]
 
     secs = sections(text)
     for name in REQUIRED:
         if name not in secs:
             out.append(("FAIL", "four sections", f"no '## {name}' section"))
+        elif not secs[name].strip():
+            out.append(("FAIL", "four sections", f"empty '## {name}' section"))
 
     steps = max(len(re.findall(r"^\s*\d+\.", secs.get("Process", ""), re.M)), 1)
     acts = human_acts(secs.get("Human check", ""))
@@ -370,6 +384,10 @@ def ratchet(paths: list[str], root: Path, rebaseline: bool) -> int:
     if not isinstance(recorded, dict):
         print(f"FAIL  {BASELINE} is not an object of path -> tokens")
         return 1
+    if any(not isinstance(path, str) or type(size) is not int or size < 0
+           for path, size in recorded.items()):
+        print(f"FAIL  {BASELINE} must map file paths to nonnegative integer sizes")
+        return 1
 
     measured, missing, worst = {}, [], 0
     for a in paths:
@@ -413,6 +431,7 @@ def ratchet(paths: list[str], root: Path, rebaseline: bool) -> int:
         print(f"down  {path:<34}{was:>6} ->{now:>6}   -{was - now}")
     for path, now in new:
         print(f"new   {path:<34}{'':>6}   {now:>6}   not in {BASELINE}; --rebaseline to record")
+        worst = 1
     for path in gone:
         print(f"gone  {path:<34}{recorded[path]:>6}          recorded, not measured this run")
     for path, was, now in grew:
@@ -437,7 +456,18 @@ def ratchet(paths: list[str], root: Path, rebaseline: bool) -> int:
 
 
 def main() -> int:
+    if "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
+        print(__doc__)
+        return 0
     worst = 0
+    modes = [flag for flag in ("--load", "--ratchet", "--rebaseline") if flag in sys.argv[1:]]
+    if len(modes) > 1:
+        print("FAIL  choose one of --load, --ratchet, or --rebaseline")
+        return 1
+    require_inputs = "--require-inputs" in sys.argv[1:]
+    if require_inputs and "--load" not in modes:
+        print("FAIL  --require-inputs requires --load")
+        return 1
     for flag, rebase in (("--ratchet", False), ("--rebaseline", True)):
         if flag in sys.argv[1:]:
             args = [a for a in sys.argv[1:] if a not in ("--ratchet", "--rebaseline")]
@@ -447,7 +477,7 @@ def main() -> int:
                 return 1
             return ratchet(args, Path.cwd(), rebase)
     if "--load" in sys.argv[1:]:
-        args = [a for a in sys.argv[1:] if a != "--load"]
+        args = [a for a in sys.argv[1:] if a not in ("--load", "--require-inputs")]
         root = Path.cwd()
         if not args:
             print("usage: evaluate-stage.py --load <stage-dir|CONTEXT.md> [...]   "
@@ -465,7 +495,7 @@ def main() -> int:
                 contract_text = (stage / "CONTEXT.md").read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 contract_text = ""
-            if RETIRED_RE.search(contract_text):
+            if retired(contract_text):
                 # Section mode skips a signpost; so does this, or `--load stages/*/`
                 # fails on every pipeline that has ever retired a folder.
                 print(f"\nskip  {stage.name} — retired signpost, NOT measured")
@@ -479,6 +509,14 @@ def main() -> int:
             print(f"\n{stage.name} — whole-step load   (root: {root})")
             for what, n, why in rows:
                 print(f"  {what:<62}{n:>6}  {why}")
+            incomplete = any(why == "every run" and
+                             ("<- NOT FOUND" in what or "<- UNCOUNTABLE" in what)
+                             for what, _, why in rows)
+            if incomplete:
+                print("  " + ("FAIL" if require_inputs else "WARN") +
+                      "  required input load is incomplete; the total is a lower bound")
+                if require_inputs:
+                    worst = 1
             # The band's floor REPORTS and its ceiling FAILS. A correct small stage --
             # every stage of the smallest three-stage pipeline measures 650-1,000 --
             # used to exit 1 with no remedy anywhere in the method, so the only action

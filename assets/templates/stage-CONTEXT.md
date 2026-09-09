@@ -45,5 +45,6 @@ path the stage actually writes.}
 and WHAT MAKES IT FAIL. No preamble framing the check, no why-it-matters, no mention of
 what other folders do with the result. Example:}
 
-{Read `output/{artifact}.md` aloud. **{The condition that stops the stage}** stops it.
-Edit in place — the next stage reads whatever is here.}
+{Read `output/{artifact}.md` aloud. Stop if {failure condition}.
+Edit and save before approving. If this check must precede a Process operation,
+state "Before step N" and name the artifact available then.}

@@ -50,7 +50,7 @@ Do not create `processes/` or `effects/` empty. Three verified noun clusters bea
 
 ## Audit pipeline (human-gated slices)
 
-Stop after each slice. A person or a cold walk reads the output before the next slice starts.
+Stop after each slice for a person's review and approval. A cold walk supplements that gate; it does not supply human approval.
 
 ### 0 — Inventory, do not write cards
 
@@ -58,7 +58,7 @@ List the tree. Classify each area: catalog / contract / factory / product / dead
 
 ### 1 — Catalog
 
-Write `CLAUDE.md`, `CONTEXT.md`, schema, templates, `objects/_index.md` with **stub lines** for every noun you will not invent a body for. Wire one routing row from the subject’s existing entry file. Walk: “where do I go to understand X?” lands in two hops.
+Write `CLAUDE.md`, `CONTEXT.md`, schema, and templates. Create **metadata-only stub cards** for approved nouns: identity, universe, and `status: stub`; do not invent descriptive bodies. Generate `objects/_index.md` from those cards so planned nouns survive regeneration. Wire one routing row from the subject’s existing entry file. Walk: “where do I go to understand X?” lands in two hops.
 
 ### 2 — Nouns (objects)
 
@@ -79,7 +79,7 @@ Re-verify load-bearing claims against source before calling the slice done. Do n
 
 Only movements that actually run or are actually followed. Typical code set: auth, publish/push, hydrate/load, run/turn, promote/export. Typical vault set: ingest, revise, publish. Do not invent a sixth.
 
-Each process card: Input → Movement → Output; numbered steps with citations; `consumes` / `produces` as links to object cards; Hits / Does not hit.
+Each process card: universe and status; Input → Movement → Output; numbered steps with citations; `consumes` / `produces` as links to object cards; Hits / Does not hit. Verification requires the same date, revision, and citations as an object card.
 
 ### 4 — Change-impact index
 
@@ -89,7 +89,7 @@ Then walk it backwards. The index answers “I am changing X, what inside the tr
 
 ### 5 — Re-verify
 
-After the first fill, rip the load-bearing claims again (especially Hits / Does not hit). Wrong waterfalls are more expensive than missing cards.
+After the first fill, verify load-bearing claims against source again, especially Hits / Does not hit. A false dependency claim can misdirect an edit.
 
 ## Object card (required sections)
 
@@ -110,7 +110,7 @@ A cold agent, no memory of the subject:
 3. Open one object card. Does it cite source, state the why, and give a first-order waterfall?
 4. From `effects/CONTEXT.md`, can it name what a stated change hits and what it does not?
 5. Follow one `See` link. Does it land on source, not another essay?
-6. Token check: entry + hub + one card stays under the whole-step ceiling in [budgets.md](budgets.md). That composition is this form's variation on it — a card stands in for a contract and its inputs. A lean map lands well under the 2k figure, and that is the form working, not failing.
+6. Token check: entry + hub + one card stays under the whole-step ceiling in [budgets.md](budgets.md). A card stands in for a contract and its inputs. A lean map may fall below the typical band without failing.
 
 If a step fails, split or move files. Do not add a “how to read this map” novel.
 

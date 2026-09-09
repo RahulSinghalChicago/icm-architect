@@ -17,11 +17,12 @@ Built on ICM: folders carry sequencing, hierarchy carries context, files carry s
 
 | If | Go to | Then stop at |
 |---|---|---|
-| starting a new run | `stages/01_.../CONTEXT.md` | human reads the output |
-| {previous stage} output approved | next numbered stage | human reads the output |
-| asked for status | scan `stages/*/output/` | report what exists |
+| starting a new run | `CONTEXT.md`, then the first stage | human approval of the output |
+| {previous stage} output approved | next numbered stage | human approval of the output |
+| asked for status | product and approval locations in `CONTEXT.md` | distinguish produced from approved |
 | setting up for a new user | `setup/questionnaire.md` | answers written to `_shared/` |
 
 ## The one rule
 
-Nothing moves to the next stage until a person has read the output of the last one.
+Nothing moves to the next stage until a person has reviewed and approved the saved output
+of the last one. Downstream work reads that saved version.

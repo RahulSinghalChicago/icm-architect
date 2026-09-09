@@ -1,58 +1,49 @@
 # icm-architect
 
-A Claude skill that designs any process, idea, or problem into an **ICM workspace** — folder structure as agent architecture — or restructures an existing folder, repo, or vault into one.
+A Claude skill for building, restructuring, and maintaining **ICM workspaces**. Numbered folders express sequence, contracts select context, and editable files carry state through human review.
 
-ICM (Interpretable Context Methodology) replaces orchestration code with structure: numbered folders carry sequencing, hierarchy carries context scoping, plain markdown files carry state. One agent, reading the right files at the right moment, does the work of a multi-agent framework — and a human can open any folder and see exactly what state the system is in.
-
-The workspace is a library. The routing files are the catalog: small, stable, they point at everything and store almost nothing. One librarian — one model — walks the building, and the question decides which shelf gets walked to.
-
-- Paper: [Interpretable Context Methodology: Folder Structure as Agent Architecture](https://arxiv.org/abs/2603.16021) (Van Clief & McDermott)
-- Community: [Clief Notes](https://www.skool.com/cliefnotes)
+Based on [Interpretable Context Methodology: Folder Structure as Agentic Architecture](https://arxiv.org/abs/2603.16021) by Van Clief and McDermott. [Community](https://www.skool.com/cliefnotes).
 
 ## What it does
 
-Three modes:
+- **Build:** extract a recurring workflow, choose its form, and scaffold the smallest useful workspace.
+- **Restructure:** inventory an existing tree and its referrers, approve a migration map, then copy, verify, and validate consumers.
+- **Maintain:** fix the owning layer, preserve existing rules, measure load, and re-walk changes.
 
-- **Build** — extracts the structure already present in how you describe your work (the stages, the human gates, what's stable vs. per-run), picks one of six proven forms, and scaffolds the smallest workspace that carries it.
-- **Restructure** — audits an existing folder, classifies every file (catalog / contract / factory / product / dead), proposes a migration map for approval, then migrates and validates.
-- **Maintain** — changes a workspace that already exists without decaying it: where a fix lands, holding the context budget, sourcing every claim, and reviewing a change so the review finds real defects instead of wording.
-
-Six forms, one skeleton: **Pipeline** (production line), **Umbrella** (portfolio of pipelines), **Record library** (people/clients/sessions), **Knowledge bundle** (a navigable brain), **Context map** (an organization as a graph), **System map** (a folder later agents will edit — nouns, movements, change-impact). They compose and recurse.
-
-Every result is validated with the **walk test**: an agent with no memory must orient, act, and report status from the files alone. `assets/evaluate-stage.py` measures the checkable half of it, so the loop is mechanical: measure, apply the remedy it names, measure again.
+Six forms compose: **Pipeline**, **Umbrella**, **Record library**, **Knowledge bundle**, **Context map**, and **System map**. Every result gets a cold walk from entry to artifact. Python tools support the checks; they cannot replace human approval or prove every reference and claim correct.
 
 ## Install
 
-**Claude Code:** copy this folder to `~/.claude/skills/icm-architect/` (or `.claude/skills/icm-architect/` inside a project), then ask Claude to "ICM this" / "structure this for agents" / "build me a workspace for X".
+**Claude Code:** place this skill at `~/.claude/skills/icm-architect/` for personal use, or `.claude/skills/icm-architect/` in a project. Invoke `/icm-architect` or ask for an ICM workspace. See [Claude Code's skill locations](https://code.claude.com/docs/en/skills#choose-where-skills-load).
 
-**Claude apps:** upload `icm-architect.skill` (build it with the skill-creator packager, or zip the `icm-architect/` folder itself — the folder is the zip root, not its contents) via [Customize → Skills](https://claude.ai/customize/skills).
+**Claude apps:** upload a ZIP through **Customize → Skills**, following [Anthropic's custom-skill instructions](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills). The archive must contain the `icm-architect/` folder, with `SKILL.md` directly inside it. From this repository, package the committed method without Git internals, tests, or session artifacts:
+
+```sh
+git archive --format=zip --prefix=icm-architect/ --output=/tmp/icm-architect.zip HEAD SKILL.md references assets LICENSE
+```
 
 ## Layout
 
-```
-icm-architect/
-├─ SKILL.md              the method: invariants, the three modes, walk test
-├─ references/
-│  ├─ core.md            five principles, the layer hierarchy, naming, library rules
-│  ├─ contracts.md       the stage contract format, and how each section is worded
-│  ├─ budgets.md         every token figure, the per-section budgets, how to count a load
-│  ├─ remedies.md        what to do when a layer is over, in the order the fixes move
-│  ├─ forms.md           the six forms in depth: skeletons, moves, failure modes
-│  ├─ system-map.md      audit pipeline for the System map form
-│  ├─ reference-integrity.md  the move-safety gate: what points at a file, case-folded
-│  │                     destinations, copy-verify-remove
-│  ├─ maintain.md        changing a built workspace: where a fix lands, claim
-│  │                     sourcing, re-walking a change
-│  └─ review.md          running a review that finds real defects, and the mechanical
-│                        check with its ceiling
-└─ assets/
-   ├─ templates/         copyable starters: CLAUDE.md, CONTEXT.md, stage contract,
-   │                     node card, object/process cards, schema, questionnaire
-   ├─ check-references.py  the mechanical cross-reference pass, with its ceiling
-   │                     documented and a --self-test that proves each check can fail
-   └─ evaluate-stage.py  scores a stage contract section by section against the
-                         budgets, measures a step's whole load, and ratchets file
-                         sizes so a shelf cannot quietly grow
+| Path | Purpose |
+|---|---|
+| [SKILL.md](SKILL.md) | Invariants, three modes, walk test, and reference routing |
+| [references/](references/) | Principles, contracts, budgets, remedies, forms, System maps, reference integrity, maintenance, review |
+| [assets/templates/](assets/templates/) | Entry and context files, stage contracts, questionnaires, node/object/process cards, schema |
+| [assets/check-references.py](assets/check-references.py) | Configurable citation checks and self-test |
+| [assets/evaluate-stage.py](assets/evaluate-stage.py) | Contract shape, estimated load, and file-size ratchet |
+| [tests/](tests/) | Behavioral regressions for both tools |
+| [token-baseline.json](token-baseline.json) | Reviewed sizes of this method's Markdown files |
+
+## Validate changes
+
+The tools use Python 3's standard library. From the repository root:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 assets/check-references.py --self-test
+python3 assets/evaluate-stage.py --ratchet README.md SKILL.md references/*.md assets/templates/*.md
 ```
 
-MIT licensed, like the protocol it serves.
+For workspace checks, configure the checker before its first scan. [Review guidance](references/review.md) explains its exclusions, `--include-products`, and the evaluator's `--load --require-inputs` execution check. Complete the relevant walk after mechanical checks pass.
+
+MIT licensed; see [LICENSE](LICENSE).

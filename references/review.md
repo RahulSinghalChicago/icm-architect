@@ -1,28 +1,63 @@
 # Reviewing a change
 
-Read this when you are **commissioning or running a review** of a workspace that already exists: choosing who reviews, seating them, deciding which findings survive verification, and knowing how much of the job a script can take off you. Applying the findings afterwards is the other seat, and it is in [maintain.md](maintain.md).
-
-The counts below come from one production workspace's audit record — the same one [maintain.md](maintain.md) describes and draws its own numbers from. They are here because the shape repeats, not because your workspace will have the same counts.
+Read when commissioning or running a review. Applying verified findings is covered by [maintain.md](maintain.md).
 
 ## Running the review
 
-A review that only asks whether the documents agree with each other will keep finding the same class of defect, because that is the class the workspace's own authors already look for.
-
-- **Use a different reviewer from the one that made the change** — a different model where you have one, otherwise a different person. In that record the round that found a different *class* of defect differed from the four before it in three ways at once: different model, no briefing on what earlier rounds had hunted, and a wider scope. The counts (9 across the first two rounds, then 13, then 15, then 23) cannot separate those causes, and the next bullet is probably doing most of the work. Change the reviewer if you can; change the briefing and the seat regardless, since those cost nothing.
-- **Do not brief the reviewer on what earlier rounds hunted.** It feels efficient and it hands over your blind spots. The un-briefed round is the one that wandered into a stage nobody had scoped and found a sign-off attesting to a machine check the code had never performed.
-- **Seat the reviewer in the role that bears the consequence, not at a proofreading desk.** "Read this contract and find problems" returns wording. A role returns defects, because the role supplies the question and you do not have to. In a pipeline: "you are about to run this stage against the live system", and "you are the person signing this gate — your signature authorises the next step". In a record library: "you are admitting this record, and everything downstream will treat it as true". In a knowledge bundle: "you are about to answer a stranger using only what is written here". In a system map: "you are about to change this object, and the map is your only warning about what else moves".
-- **Verify findings adversarially before applying any of them.** Default to refuted. A wrong finding that survives review costs more than a real one that is missed, because it gets written into the files as a fix.
-- **Then ask a second, separate question: what does the FIX delete?** The bullet above doubts the finding; nothing yet doubts the remedy. A finding can be correct and its fix still destructive — *duplicated*, *over budget* and *already on the shelf* are true findings whose remedy is a removal, and "it is already at X" is a claim like any other: open X and find the sentence there before cutting it. On a deletion the default reverses, and the refuter keeps. Asking this produced an explicit do-not-apply list in two reviews of that record — eight items and twenty-three — including correct findings whose fixes would have removed the only anti-back-fill instruction in that workspace and narrowed a customer-data gate's scope.
-- **Count what a round produced and what it cost.** Defects found per round, and defects introduced per fix round, are the only signal you have about whether the workspace is converging. If neither number is falling, more rounds of the same kind will not help — change the seat, the model, or the scope.
+- Use a different reader from the author where available. Give them the task and source files without briefing them on earlier findings; otherwise they may repeat the same search.
+- Give the reader a consequential role: an operator executing a stage, a person signing its gate, a reviewer admitting a record, or an editor relying on a System map's change-impact claims.
+- Walk a realistic input forward to an artifact. Test failures and saved human edits where they matter; agreement between documents alone cannot prove the workflow works.
+- Verify findings against source before applying them. Then separately check what the proposed fix would remove. Keep a rule until its equivalent home is demonstrated or its retirement is explicitly justified.
+- Record useful findings, defects introduced by fixes, and review cost. If repeated rounds add little, change the question or stop; do not repeat the same audit indefinitely.
 
 ## The mechanical check and its ceiling
 
-Some defects need no judgement: a citation to a file that is gone, a section name that is not in the file it names, a symbol or flag no code has ever had, a line citation pointing past the end of the file it names. Those are worth catching in code. [../assets/check-references.py](../assets/check-references.py) is a starting point — copy it into the workspace and set the constants at the top. It resolves the workspace from the script's own location, not your cwd, so put it at the root or pass `--root`. It ships a `--self-test`; run it before you trust a clean run, and after any edit to the script.
+Copy [check-references.py](../assets/check-references.py) into a workspace and configure its constants before running it. Its default root is the script's directory, so pass `--root` if the script lives elsewhere.
 
-Five things to know before you trust it, all learned the hard way:
+```sh
+python3 check-references.py --self-test
+python3 check-references.py --root .
+python3 check-references.py --root . --include-products
+```
 
-- **Tune it or it is worse than nothing.** The first honest run of the original returned 389 problems, essentially none real: per-run artifact names read as repo paths, CSS custom properties read as CLI flags, closed historical records flagged for citing paths that were correct when written. It took four passes to get from 389 to 3 to 0. A checker that cries wolf gets ignored, and then it is a checker nobody runs that everyone cites.
-- **Name every quarantined folder before the first run.** A checker walks by opening files, so a workspace with a tree its data policy protects — customer rows, credentials — is having that tree read by tooling on every check until you exclude it. There is no safe default name, so this is a setup step, not a tuning step. The same run also returns that tree's per-run artifact names as dead citations, which is how you find out.
-- **Some files cite dead paths on purpose.** A signpost that maps old locations to new ones, and a hazard note that names the file whose *absence* is the safety property, both fail a naive path check. Exempt them by name. Read the flagged sentence before fixing it: one such "fix" turned an old→new map into "X is now X".
-- **A check that has never failed has not been shown to work.** One check in the original crashed on the first defect of the exact class it was built to catch, suppressing every other finding in the run — and it had reported clean since the day it was written, because no input had ever reached that branch. Prove each check can fail by constructing a defect it should catch. Isolate every check so one crashing cannot hide the rest, and make the crash itself a failure rather than a skip.
-- **It cannot tell you whether a true-looking sentence is true.** Every fabricated mechanism catalogued in `maintain.md`, "Sourcing claims", passes it clean; a made-up URL is a well-formed string and a deadlocked precondition is well-formed prose. Passing means the citations resolve. It does not mean the workspace is sound, and it must never be reported as if it does.
+Use the last command after a migration when cited products should already exist. The default permits not-yet-produced paths in `PRODUCT_DIRS`. This flag does **not** override `SKIP` or other exemptions.
+
+### Configure the scope
+
+- **SKIP:** name every quarantined folder before the first run. The checker opens discovered Markdown and configured Python code. Skipped targets and symlinks resolving outside the workspace are not opened. Defaults also omit archives, run history, and common generated directories.
+- **LIVE_IN_SKIPPED:** explicitly allow a live file inside a skipped tree only when its contents may be read.
+- **DELIBERATE_DEAD:** exempt known signposts or hazard notes from path and line checks. Keep truthful old→new maps; do not rewrite history to satisfy a checker.
+- **CODE_DIRS:** select Python code directories for symbol and flag searches. Empty means those checks are disabled, and the run says so.
+- **NOT_CLI:** exempt files whose backticked names are styling tokens rather than command flags.
+- **PRODUCT_DIRS:** name product path segments normally absent before a run. Enable product checking when their existence is required.
+
+Per-file exemptions accept basenames or paths relative to the root. Prefer precise paths to avoid exempting unrelated files with the same name. Stale exemption entries fail.
+
+### What a clean run establishes
+
+| Check | Actual coverage |
+|---|---|
+| Paths | Backticked paths containing a slash, using `md`, `csv`, `py`, `json`, `yaml`, `yml`, or `txt` extensions; recognized spaced paths are flagged as unsupported |
+| Sections | Nearby quoted phrases after a backticked Markdown filename occur somewhere in the target; this does not prove an exact heading or correct scope |
+| Lines | Cited file exists and every cited number is within its current line range; the intended text may have moved |
+| Symbols and flags | Supported backticked names occur in configured Python text; comments and calls can match, so this does not prove a definition or accepted CLI option |
+| Configuration | Named exemption files and code directories exist |
+
+The checker does not validate Markdown links, wikilinks, all bare filenames, variable-rooted paths, unsupported extensions, external consumers, or factual claims. Resolve those during the walk or with an appropriate link checker. Its `--self-test` plants representative defects and checks isolation and exemptions; it is not exhaustive coverage of all syntax.
+
+A clean run means no problems were found in the citations actually checked. Inspect advisories and exemptions before reporting it. Run the self-test after modifying the checker; a test that has never seen its intended failure is insufficient evidence.
+
+## Stage and load checks
+
+[The stage evaluator](../assets/evaluate-stage.py) checks required nonempty sections and their estimated sizes. Human-act counting is a warning for a person to classify. It does not judge the truth of the contract or approve its output.
+
+```sh
+python3 evaluate-stage.py stages/01_research
+python3 evaluate-stage.py --load stages/01_research
+python3 evaluate-stage.py --load --require-inputs stages/02_script
+python3 evaluate-stage.py --ratchet CLAUDE.md CONTEXT.md stages/*/CONTEXT.md
+```
+
+Run load and ratchet commands from the workspace root. Export variables the inputs use. `--load` warns about unresolved required inputs and reports a lower bound, which is useful while scaffolding. Add `--require-inputs` before execution to fail incomplete measurements. Same-stage generated files belong in Outputs, not prerequisite Inputs; assess their size if the agent rereads them later. Scope syntax and counting limits are in [contracts.md](contracts.md) and [budgets.md](budgets.md).
+
+Only explicit dated `RETIRED` signposts or retired frontmatter should be skipped. Retired folders are not evaluated and cannot be reported as passing stages. Keep their old-location references functional.

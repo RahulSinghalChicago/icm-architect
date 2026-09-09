@@ -11,8 +11,11 @@ The flow in one line: {plan it, make it, check it, ship it — in your workspace
 Factory (stable, every run): `_shared/{voice.md, rules.md, …}`
 Product (new each run): each stage's `output/`
 
-Status is whatever exists: a stage is COMPLETE when its `output/` holds an artifact — a
-placeholder that only keeps the empty folder in git (`.gitkeep` and its variants) does not
-count. {A run begins by emptying every `output/` — or say here where each run writes
-instead, and keep the CLAUDE.md routing row in step with it. Run two reads run one's files
-otherwise.}
+Status: missing artifact = NOT STARTED; artifact present = AWAITING REVIEW;
+artifact plus recorded human approval = COMPLETE. An empty-directory placeholder is not
+an artifact. {Name the approval file or frontmatter field here. Approval covers the saved
+version reviewed; edits after approval require review again.}
+
+Run boundary: {use a separate folder per run, or describe how outputs and approvals reset
+while preserving required history. New runs must not inherit prior products. Keep the
+entry file's status route aligned with these paths.}

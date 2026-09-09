@@ -21,6 +21,6 @@ The closed set of note types, the labels they carry, and the naming they follow.
 
 - Slugs: kebab-case. Data assets always `data-<thing>.md`.
 - Human-browsed cards may use Title Case — hyphenated (`Team-Name.md`), declared here, held
-  everywhere. No path regex in `check-references.py` or `evaluate-stage.py` matches a space, so
-  *Team Name.md* is invisible to both the load count and the dead-path check.
+  everywhere. The supplied tools flag recognized spaced citations as unsupported;
+  use `Team-Name.md` so paths can be resolved and counted.
 - `_meta/` holds the rules (this file). Generated indexes are rebuilt by script, never hand-edited.

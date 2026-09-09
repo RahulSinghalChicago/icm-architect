@@ -1,67 +1,56 @@
 # Budgets
 
-Every budget in the method lives here — this file is their one home. One question: what should this
-number be, how is it counted, and where does the thing it measures land? Read it when writing a
-contract, when a folder feels heavy, when a structural call about size is contested, or when deciding
-where a product lands. Figures quoted as evidence *for a remedy* sit with that remedy in
-[remedies.md](remedies.md); the budgets are here.
-
-**What to do when a number is over is not here.** The three remedies in the order they move, the test
-for whether a folder really wants splitting, the L3 shelf remedies and the Inputs list's own five are
-in [remedies.md](remedies.md) — a different question, asked at a different moment, by a reader who
-already has the number. This file split on 2026-09-06 by the first of the three L3 shelf remedies, when it reached 3,710 tokens against its own L3
-budget of 2k, by the first of the three remedies it prescribes: split by the question a reader arrives
-with.
+This file owns all size targets and counting rules. Layer roles live in [core.md](core.md), contract wording in [contracts.md](contracts.md), and corrective actions in [remedies.md](remedies.md).
 
 ## The five-layer context hierarchy
 
-**Roles are not here.** What each layer is for, and the question it answers, are in
-[core.md](core.md) under this same heading — one home, so they cannot drift apart.
-
 | Layer | Typical file | Budget |
 |---|---|---|
-| L0 | `CLAUDE.md` | 300–800 tokens |
-| L1 | root `CONTEXT.md` | 200–500 tokens |
-| L2 | stage `CONTEXT.md` | 410 + 60 per step (see below) |
+| L0 | `CLAUDE.md` or `AGENTS.md` | 300–800 tokens |
+| L1 | Root `CONTEXT.md` | 200–500 tokens |
+| L2 | Stage `CONTEXT.md` | 410 + 60 per numbered Process step |
 | L3 | `references/`, `_shared/` | 500–2k tokens |
-| L4 | `output/`, run artifacts | varies |
-| — | one step's whole load (L0 + L1 + L2 + its L3 + its inputs) | under 8k; 2k–8k typical |
+| L4 | Outputs and run artifacts | Varies |
+| — | Whole step: L0 + L1 + L2 + loaded L3 + working inputs | At most 8k; 2k–8k typical |
 
-**How to count the whole load, because two defensible readings give opposite verdicts.** Each input
-counts at its scope, per the table in [contracts.md](contracts.md), "Writing the Inputs list": a
-citation to a named section counts as **that section**, the two zero-scopes count as **zero**, and
-anything cited *without* a scope counts as the whole file — because that is what a reader will do
-with it. A path cited twice at the same scope and the same sections counts **once**: a reader opens a
-file once, and `--load` prints the repeat at 0 as *already counted above*. Without these rules the
-same stage measures 9,560 tokens or 1,200 depending on who counts.
+Upper bounds constrain load. Lower bounds describe typical sizes: **do not pad a complete file or step to reach them**. Over-budget content needs a remedy or a recorded reason and due date. A smaller, effective folder is a useful local benchmark; the table does not license growth toward its ceiling.
 
-These are the one home for the numbers, and they are limits rather than observations. A file over its budget is a defect with a due date; what to do about it is [remedies.md](remedies.md). Measure before arguing.
+These are design targets, not claims about a model's exact performance. [The evaluator](../assets/evaluate-stage.py) estimates tokens as whitespace words × 1.359, rounded. Calibrate for your material: code, JSON, long identifiers, and non-Latin text can tokenize more densely.
 
-**Why there is a number at all.** The budgets keep the model in the range where it performs best and keep every load auditable. A monolithic everything-prompt for the same pipeline typically runs 30k–50k tokens, most of it irrelevant to the current step; ICM never loads those tokens rather than compressing them later.
+## How to count the whole load
 
-**The whole-step row is a band, and only its top is enforced.** The 2k–8k is the range a healthy step usually lands in: `evaluate-stage.py --load` fails a step above 8,000 and *reports* one below 2,000 without failing it, because the smallest correct pipeline measures 650–1,000 per stage and no remedy for undershoot exists or should. A step under the floor is worth seeing and is not a defect.
+Run `evaluate-stage.py --load <stage-dir>` from the workspace root. It includes root entry/context files, the stage contract, and declared Inputs:
 
-**The L2 figure is a whole-file number for a file with four structurally different sections, so on its own it tells you nothing about where to cut.** Budget the sections:
+- Working and every-run references count. Unscoped paths count as every-run whole files.
+- An exact quoted heading counts that section and its subsections. The file's preamble is excluded; preserve necessary preamble material under a cited heading before narrowing.
+- Conditional and never-load entries cost zero and are not opened by the counter. If a conditional reference is actually needed, include its size when assessing that run.
+- Repeated citations to the same resolved file at the same scope and sections count once. Byte-identical root entry twins count once. Different or overlapping section selections may overcount; inspect the breakdown.
+- Export run variables before measuring. Explicit `./` and `../` paths resolve from the stage; other relative paths try the stage before the workspace root.
+- Missing or unsupported required inputs leave a **lower bound**, with a warning during scaffolding. Use `--load --require-inputs` before execution to make an incomplete load fail. A missing or empty quoted section is also incomplete.
 
-| Section | Budget | What breaks it |
+The counter supports backticked file paths with `md`, `csv`, `py`, `json`, `yaml`, `yml`, or `txt` extensions. It reports recognized unsupported citations, such as directories or paths with spaces, without counting their contents. It cannot discover undeclared reads. Check the Process, Human check, and invoked runbooks for those during the walk.
+
+This estimates declared reading load, not generated tokens. Same-stage outputs are declared in Outputs and need not exist before execution. If the agent rereads them later, add their size when assessing that phase; a person's review alone does not load them into agent context.
+
+Whole-step load above 8,000 fails; a total below 2,000 is reported without failing. A budget pass does not approve an artifact or establish its correctness.
+
+## Budget the sections
+
+| Section | Budget | Content |
 |---|---|---|
-| Inputs | ≤ 200 tokens | A gloss longer than the path it annotates. The path and its scope are the rule; why that scope is reasoning. |
-| Process | ≤ 60 tokens **per numbered step** | One instruction and its guardrail. Measurements, worked examples and "here is how we learned this" are shelf material. |
-| Outputs | ≤ 60 tokens | Artifact paths. An Outputs section explaining anything is describing the Process again. |
-| Human check | ≤ 150 tokens, and **exactly one act** | Two acts is two stages — see [remedies.md](remedies.md), "Reaching remedy 3". |
+| Inputs | ≤ 200 tokens | Paths and scopes |
+| Process | ≤ 60 tokens per numbered step | One instruction and its guardrail |
+| Outputs | ≤ 60 tokens | Artifact paths |
+| Human check | ≤ 150 tokens; one human judgment | Act, artifact, stopping condition |
 
-**410 + 60N is the L2 budget** — the sections are the authority and the row above is derived from them, so a three-step stage budgets to 590 and a ten-step stage to 1,010. A flat **200–500** for L2 stood in this skill until commit 829787a (2026-08-21) added the per-section budgets; the formula supersedes it.
+The L2 formula, **410 + 60N**, derives from these sections. A section over its own target is still over even when the total fits. Overshoot is reported; **more than 20% over a section budget fails**. The tolerance is a reporting threshold, not extra budget.
 
-Over budget is reported; **materially over — more than about 20% — is the failure.** A criterion that fails a section at 205 against 200 gets gamed or ignored. The band is a reporting threshold, not extra budget: a section inside it is still over, and must not be allowed to creep.
+The tool counts numbered Process lines, so renumbering can improve a verdict without removing any content. Review the prose change too: a legitimate new step carries a complete instruction and guardrail. Splitting a sentence across more numbers does not reduce load.
 
-Do not read the formula as licence to grow: a section over its own budget is over, whatever the total says.
+Human-act counting is a warning heuristic. Classify apparent acts as human attestations or deterministic transcriptions before splitting; see [remedies.md](remedies.md), “Reaching remedy 3”.
 
-**N is whatever the author numbers.** The counter reads a step wherever a line begins with a digit and a period, and each one is worth 60 tokens of Process budget: splitting one step into two moves the budget by 60 and the text by one numbering mark, so the same prose can fail as two steps and pass as three. The ordinary route is innocent — a step really was two instructions, cleanup splits it, and "it passes now" gets reported and believed, the split legitimate and the pass unearned at once. So when a Process verdict improves across an edit, diff the prose, not the verdict: text leaving for the shelf is the remedy working; only the numbering changing is the measure being re-based. Each new step is held to the Process row above — one instruction and its guardrail. A number in front of half an instruction changes the count, not the weight.
+## Where the product lands
 
-**Benchmark against your own best folder.** Every workspace has one stage that was built carefully and works; measure it per section. A folder measuring *under* budget resets the target downward — it never licenses the others to rise to the table. The table is where to start when you have nothing to compare against.
+Stage `output/` is the template default. Products shared across stages belong in a run folder. Material that must not be committed belongs in the workspace's quarantined location.
 
-### Where the product lands
-
-`output/` in the templates is the default, not a requirement: a subfolder inside the stage, so status is answerable by scanning `stages/*/output/`. Two cases break it, and both are common. When a product is **produced by a run rather than a stage** — an evidence file several stages append to, a ledger the whole cycle shares — it belongs in that run's folder, not in any one stage's. When a product **must not be committed** — customer rows, credentials, anything with personal data — it belongs in the workspace's quarantined folder, whatever that is called.
-
-Either way the contract's Outputs section states the real path, and one file says where products land. Invariant 9 is satisfied by *a* scannable location, not by the folder being named `output/`. What breaks the invariant is a contract that says `output/` because the template did while the run writes somewhere else.
+Declare the real output paths in the contract and the status route in root context. Separate each run's products, or explicitly reset the chosen working area while preserving required history. A fresh run must not inherit earlier outputs or approvals. Placeholder files that only preserve an empty directory do not count as products.

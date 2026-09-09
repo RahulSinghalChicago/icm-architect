@@ -1,39 +1,20 @@
 #!/usr/bin/env python3
-"""Mechanical cross-reference checks over an ICM workspace.
+"""Check supported citations in an ICM workspace.
 
-Some workspace defects need judgement. These do not: a citation to a file that is
-gone, a section name that is not in the file it names, a code symbol or CLI flag
-no script has ever had, a line citation past the end of the file it points at.
-They are cheap to check, expensive to miss, and not worth a reader's attention.
+Configure the constants below before scanning. Run --self-test after editing the
+checker. Use --include-products when cited outputs should already exist.
 
-WHAT THIS CANNOT DO -- read this before quoting a passing run at anyone.
+    python3 check-references.py --root .
+    python3 check-references.py --root . --include-products
+    python3 check-references.py --self-test
 
-  It cannot tell you whether a true-looking sentence is true. A fabricated URL is
-  a well-formed string. A rule that deadlocks the pipeline is well-formed prose.
-  A stated mechanism that the code does not implement names real files, real
-  symbols, and real flags, and passes every check here. In the workspace this
-  came from, an entire audit round's worth of defects -- an invented URL in the
-  constants file, a precondition that made a stage refuse the re-entry it was
-  ordered to accept, a false failure mode that taught operators to disbelieve a
-  correct error -- were all invisible to it while it printed "all clear".
+Coverage is intentionally limited: backticked paths, quoted phrases, line bounds,
+and text occurrences of symbols/flags in configured Python files. Markdown links,
+wikilinks, variable-rooted paths, external consumers, and behavior need other
+checks. A pass applies only to checked citations and configured scope.
 
-  "Checks pass" means the citations resolve. Report it that way, never as
-  "the workspace is sound".
-
-  A check that has never failed has not been shown to work. Run --self-test: it
-  builds a workspace containing one defect per check and fails if any check
-  misses its own. One check in the original of this script crashed on the first
-  real instance of the exact class it existed to catch, suppressing every other
-  finding in that run -- and had reported clean since the day it was written,
-  because no input had ever reached the branch that crashed.
-
-SETUP. Copy into the workspace, set the constants below, run from anywhere:
-
-    python3 check-references.py [--root PATH] [--self-test]
-
-Exit 1 if anything fails. Expect to tune SKIP, DELIBERATE_DEAD and NOT_CLI for a
-few passes: an untuned first run over a real workspace typically reports hundreds
-of problems, almost none of them real, and a checker that cries wolf gets ignored.
+Exit 1 on findings, unreadable targets, invalid configuration, or a crashed check.
+Read flagged sentences before fixing them; signposts can cite dead paths on purpose.
 """
 from __future__ import annotations
 
@@ -74,10 +55,8 @@ CODE_DIRS: tuple[str, ...] = ()
 
 # Files that describe pages or styling rather than scripts. CSS custom properties
 # are indistinguishable from CLI flags, so these are not asked about flags.
-# Matched against the file's NAME (basename), unlike DELIBERATE_DEAD and
-# LIVE_IN_SKIPPED, which are matched against the path from the root. Both forms are
-# checked below and an entry matching neither is reported, so a key in the wrong
-# shape can no longer be silently ignored.
+# All per-file exemptions accept a basename or path relative to the root.
+# Prefer precise paths; stale entries are reported.
 NOT_CLI: tuple[str, ...] = ()
 
 # Folders a run WRITES into. A contract names the file it produces -- `output/script.md`
@@ -133,22 +112,18 @@ def read(path: Path) -> str | None:
 
 
 def docs(root: Path) -> list[Path]:
-    out = []
-    for p in sorted(root.rglob("*.md")):
-        rel = p.relative_to(root)
-        if str(rel) in LIVE_IN_SKIPPED:
-            out.append(p)
-        elif not any(part in SKIP for part in rel.parts):
-            out.append(p)
-    return out
+    # Apply the same boundary to discovered documents and cited targets. A symlink
+    # outside SKIP must not expose a target inside it (or outside the workspace).
+    return [p for p in sorted(root.rglob("*.md"))
+            if p.is_file() and not quarantined(p, root)]
 
 
 def code_text(root: Path) -> str:
     parts = []
     for d in CODE_DIRS:
         for p in (root / d).rglob("*.py"):
-            if "__pycache__" not in str(p):
-                parts.append(p.read_text(encoding="utf-8", errors="ignore"))
+            if p.is_file() and not quarantined(p, root):
+                parts.append(p.read_text(encoding="utf-8"))
     return "\n".join(parts)
 
 
@@ -163,9 +138,9 @@ def quarantined(path: Path, root: Path) -> bool:
     """
     try:
         rel = path.resolve().relative_to(root.resolve())
-    except ValueError:
+    except (ValueError, OSError, RuntimeError):
         return True                       # outside the workspace: never opened
-    return (str(rel) not in LIVE_IN_SKIPPED
+    return (rel.name not in LIVE_IN_SKIPPED and str(rel) not in LIVE_IN_SKIPPED
             and any(part in SKIP for part in rel.parts))
 
 
@@ -175,7 +150,7 @@ def resolve(cited: str, doc: Path, root: Path) -> Path | None:
     if cited.startswith(("./", "../")):
         cands = (doc.parent / cited,)
     else:
-        cands = (root / cited, doc.parent / cited)
+        cands = (doc.parent / cited, root / cited)
     for cand in cands:
         if cand.exists():
             return cand
@@ -183,11 +158,11 @@ def resolve(cited: str, doc: Path, root: Path) -> Path | None:
 
 
 def is_product(cited: str) -> bool:
-    """A path a run writes rather than one the workspace ships. Not existence-checked."""
+    """A product path, exempt by default unless --include-products is enabled."""
     return any(part in PRODUCT_DIRS for part in Path(cited).parts)
 
 
-def check_paths(root, fails, advisories):
+def check_paths(root, fails, advisories, *, include_products=False):
     for doc in docs(root):
         if exempt(doc, root, DELIBERATE_DEAD):
             continue
@@ -199,12 +174,12 @@ def check_paths(root, fails, advisories):
             if "<" in m.group(1) or "{" in m.group(1):
                 continue
             fails.append(("uncheckable path", doc,
-                          f"cites {m.group(1)!r} -- no path regex matches a space, so this "
-                          "citation is never checked and --load charges it nothing. "
+                          f"cites {m.group(1)!r} -- paths with spaces are unsupported, so "
+                          "this citation cannot be resolved or its contents counted. "
                           "Hyphenate the filename."))
         for m in PATH_RE.finditer(text):
             cited = m.group(1)
-            if "<" in cited or cited.endswith("/") or is_product(cited):
+            if "<" in cited or cited.endswith("/") or (is_product(cited) and not include_products):
                 continue
             if resolve(cited, doc, root) is None:
                 fails.append(("dead path", doc, f"cites {cited}, which does not exist"))
@@ -244,7 +219,7 @@ def exempt(doc: Path, root: Path, names: set[str]) -> bool:
     return doc.name in names or str(doc.relative_to(root)) in names
 
 
-def check_line_citations(root, fails, advisories):
+def check_line_citations(root, fails, advisories, *, include_products=False):
     """Line citations resolve today and drift tomorrow. Past-the-end is a failure;
     the rest is an advisory, because narrowing a big file by line range is a real
     technique and this script does not get to overrule it."""
@@ -256,7 +231,7 @@ def check_line_citations(root, fails, advisories):
         if text is None:
             continue
         for m in LINECITE_RE.finditer(text):
-            if is_product(m.group(1)):
+            if is_product(m.group(1)) and not include_products:
                 continue
             target = resolve(m.group(1), doc, root)
             if target is None:
@@ -272,9 +247,9 @@ def check_line_citations(root, fails, advisories):
                               "read as UTF-8; its line count was NOT checked"))
                 continue
             tail = [n for n in re.split(r"[,\-]", m.group(2)) if n.strip().isdigit()]
-            if tail and int(tail[-1]) > len(body.splitlines()):
+            if tail and (min(map(int, tail)) < 1 or max(map(int, tail)) > len(body.splitlines())):
                 fails.append(("line citation", doc,
-                              f"cites {m.group(1)}:{m.group(2)}, past the end of that file"))
+                              f"cites {m.group(1)}:{m.group(2)}, outside that file's line range"))
                 continue
             seen += 1
     if seen:
@@ -298,7 +273,7 @@ def check_symbols(root, fails, advisories):
                 continue
             # Whole-name match: a substring test passes restores() for restore().
             if not re.search(rf"\b{re.escape(sym)}\s*\(", code):
-                fails.append(("unknown symbol", doc, f"names {sym}() -- not in any script"))
+                fails.append(("unknown symbol", doc, f"names {sym}() -- not found in configured Python text"))
         if doc.name in NOT_CLI or str(doc.relative_to(root)) in NOT_CLI:
             continue
         for m in FLAG_RE.finditer(text):
@@ -307,7 +282,7 @@ def check_symbols(root, fails, advisories):
                 continue
             if HISTORY_RE.match(text[m.end():]):
                 continue
-            fails.append(("unknown flag", doc, f"names {flag} -- no script defines it"))
+            fails.append(("unknown flag", doc, f"names {flag} -- not found in configured Python text"))
 
 
 def check_config(root, fails, advisories):
@@ -345,7 +320,8 @@ def _self_test() -> int:
     skip -- one crashing check must never be able to hide the others.
     """
     global CODE_DIRS, PRODUCT_DIRS, SKIP, DELIBERATE_DEAD, LIVE_IN_SKIPPED, NOT_CLI
-    tmp = Path(tempfile.mkdtemp())
+    temporary = tempfile.TemporaryDirectory()
+    tmp = Path(temporary.name)
     (tmp / "code").mkdir()
     (tmp / "code" / "tool.py").write_text(
         "def real_symbol():\n    pass\n\n# parser.add_argument('--real-flag')\n")
@@ -417,6 +393,7 @@ def _self_test() -> int:
         Path.read_text = _real_read_text
         (CODE_DIRS, PRODUCT_DIRS, SKIP, DELIBERATE_DEAD,
          LIVE_IN_SKIPPED, NOT_CLI) = saved
+        temporary.cleanup()
     # Inside the folder, not merely named after it: cites-quarantine.md is a live doc
     # and must be read. An earlier version of this assertion matched its name and failed
     # on the correct behaviour.
@@ -427,10 +404,10 @@ def _self_test() -> int:
 
     kinds = {kind for kind, _, _ in fails}
     want = {"dead path", "dead section", "unknown symbol", "unknown flag", "line citation"}
+    missed = want - kinds
     for flag in ("--live-flag", "--other-live", "--third-live"):
         if not any(k == "unknown flag" and flag in m for k, _, m in fails):
             missed.add(f"unknown flag ({flag}: history window too wide)")
-    missed = want - kinds
     # A crash AFTER a check reported its planted defect still leaves that kind in `kinds`,
     # so `want - kinds` was empty and the self-test printed "all 5 caught" above the crash
     # it had just recorded. Assert on the crash directly.
@@ -470,12 +447,18 @@ def _self_test() -> int:
 # -------------------------------------------------------------------------- main
 
 
-def run(root: Path):
+def run(root: Path, *, include_products=False):
     fails: list[tuple[str, Path, str]] = []
     advisories: list[str] = []
+    if PRODUCT_DIRS and not include_products:
+        advisories.append("Product paths are not existence-checked. Use --include-products "
+                          "when validating existing products after a migration.")
     for fn in CHECKS:
         try:
-            fn(root, fails, advisories)
+            if fn in (check_paths, check_line_citations):
+                fn(root, fails, advisories, include_products=include_products)
+            else:
+                fn(root, fails, advisories)
         except Exception as exc:  # a broken check must not hide the others
             fails.append(("check crashed", root, f"{fn.__name__}: {exc!r}"))
     return fails, advisories
@@ -487,18 +470,23 @@ def main() -> int:
                     help="workspace root (default: the script's parent directory)")
     ap.add_argument("--self-test", action="store_true",
                     help="prove each check can fail, then exit")
+    ap.add_argument("--include-products", action="store_true",
+                    help="also check product paths; use after migration when the products exist")
     args = ap.parse_args()
     if args.self_test:
         return _self_test()
 
     root = (args.root or Path(__file__).resolve().parent).resolve()
-    fails, advisories = run(root)
+    if not root.is_dir():
+        print(f"FAIL  workspace root is not a directory: {root}")
+        return 1
+    fails, advisories = run(root, include_products=args.include_products)
 
     for note in advisories:
         print(f"advisory: {note}")
     if not fails:
-        print("cross-reference checks: all clear. This means the citations resolve. "
-              "It does not mean the workspace is sound.")
+        print("cross-reference checks: no problems found in the checked citations. "
+              "Exempt and unsupported references still need a manual walk.")
         return 0
 
     by_kind: dict[str, list] = {}

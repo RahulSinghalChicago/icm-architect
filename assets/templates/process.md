@@ -1,6 +1,9 @@
 ---
 type: process   # System map verb card. The Context map process node is node.md.
+universe: {live|leftover|ghost}
 status: stub
+verified: {date}       # verified status requires date, revision, and citations
+verified-against: {branch, commit, or vault revision}
 consumes: []
 produces: []
 ---
